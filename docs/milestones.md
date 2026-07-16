@@ -21,8 +21,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M3 | COMPLETE | Deterministic provider contracts, scripted fake adapter, safe rendering, sequential local runner, CLI execution, tests, and docs |
 | M4 | COMPLETE | Six deterministic evaluators, bounded evidence, provider-error handling, runner integration, tests, and docs |
 | M5 | COMPLETE | Deterministic case aggregation and fixed pass/fail/error gate with ordered rule evidence |
-| M6 | IN PROGRESS | Versioned local JSON report |
-| M7–M24 | NOT STARTED | No implementation work permitted until M6 is complete |
+| M6 | COMPLETE | Versioned, bounded, deterministic local JSON report with provenance and redaction |
+| M7 | IN PROGRESS | OpenRouter provider adapter |
+| M8–M24 | NOT STARTED | No implementation work permitted until M7 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -90,15 +91,17 @@ Aggregate pass/error/critical-case/usage metrics and implement fixed pass/fail/e
 
 ## M6 — Local JSON report
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 Produce a versioned, bounded, redacted JSON report with provenance, decisions, metrics, cases, and usage.
 
 **Acceptance:** Schema and golden fixtures pass; secrets are absent; ordering is stable.
 
+**Evidence:** 78 tests passed at 94.69% coverage. Ruff, strict mypy, redaction/ordering/truncation tests, CLI report smoke, and package builds passed.
+
 ## M7 — OpenRouter provider adapter
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Add OpenRouter behind the M3 provider port with normalized responses, timeouts, usage/cost capture, typed errors, and mocked contract tests.
 

@@ -12,6 +12,7 @@ from model_regression_detection import __version__
 from model_regression_detection.execution import execute_local_evaluation
 from model_regression_detection.providers.fake import FakeProvider
 from model_regression_detection.providers.fixtures import load_fake_responses
+from model_regression_detection.reporting import build_json_report
 from model_regression_detection.specification import (
     SpecificationLoadError,
     load_specification,
@@ -91,7 +92,11 @@ def run_local(
     ],
     output_path: Annotated[
         Path | None,
-        typer.Option("--output", dir_okay=False, help="Optional JSON result output path."),
+        typer.Option("--output", dir_okay=False, help="Optional raw run/gate JSON output path."),
+    ] = None,
+    report_path: Annotated[
+        Path | None,
+        typer.Option("--report", dir_okay=False, help="Optional versioned JSON report path."),
     ] = None,
 ) -> None:
     """Run every case sequentially against deterministic fake responses."""
@@ -106,12 +111,15 @@ def run_local(
     serialized = report.model_dump_json(indent=2)
     if output_path is not None:
         output_path.write_text(f"{serialized}\n", encoding="utf-8")
+    if report_path is not None:
+        json_report = build_json_report(specification, report)
+        report_path.write_text(f"{json_report.model_dump_json(indent=2)}\n", encoding="utf-8")
     typer.echo(
         f"completed suite={report.run.suite} total={report.run.total_cases} "
         f"success={report.run.successful_cases} errors={report.run.error_cases} "
         f"gate={report.gate.outcome.value}"
     )
-    if output_path is None:
+    if output_path is None and report_path is None:
         typer.echo(serialized)
 
 

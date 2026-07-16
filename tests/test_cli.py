@@ -138,3 +138,27 @@ def test_run_local_command_rejects_invalid_fixture(tmp_path: Path) -> None:
 
     assert result.exit_code == 2
     assert "exactly one of output or error is required" in result.stderr
+
+
+def test_run_local_command_writes_versioned_report(tmp_path: Path) -> None:
+    root = Path(__file__).parents[1]
+    report = tmp_path / "report.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "run-local",
+            str(root / "examples" / "evaluation.yaml"),
+            "--responses",
+            str(root / "examples" / "fake-responses.json"),
+            "--report",
+            str(report),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "1"
+    assert payload["gate_outcome"] == "error"
+    assert payload["provenance"]["suite"] == "customer-support-smoke"
+    assert [case["case_key"] for case in payload["cases"]] == ["refund-policy", "greeting"]

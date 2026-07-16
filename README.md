@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 5 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, and local aggregation with a fixed pass/fail/error gate. OpenRouter, persistence, workers, reports, and baseline comparison intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 6 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, and a versioned local JSON report. OpenRouter, persistence, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 
@@ -28,6 +28,7 @@ In another terminal:
 uv run mrds version
 uv run mrds validate examples/evaluation.yaml
 uv run mrds run-local examples/evaluation.yaml --responses examples/fake-responses.json
+uv run mrds run-local examples/evaluation.yaml --responses examples/fake-responses.json --report report.json
 uv run mrds health --url http://127.0.0.1:8000
 curl http://127.0.0.1:8000/health/live
 ```
@@ -85,5 +86,6 @@ Invalid or unknown settings fail at startup. Do not put credentials in these gen
 - `execution/`: sequential local rendering, provider result accounting, and evaluator invocation.
 - `evaluators/`: fixed deterministic assertions and bounded evidence.
 - `policy/`: deterministic aggregation and the fixed local pass/fail/error gate.
+- `reporting/`: versioned, bounded, deterministic local JSON report.
 
-See [`docs/milestones.md`](docs/milestones.md) for the implementation source of truth, [`docs/evaluation-specification.md`](docs/evaluation-specification.md) for the M2 contract, [`docs/local-runner.md`](docs/local-runner.md) for M3, [`docs/evaluators.md`](docs/evaluators.md) for M4, [`docs/policy.md`](docs/policy.md) for M5, and [`docs/architecture.md`](docs/architecture.md) for the target architecture. Target-state documentation is broader than the implemented milestone scope.
+See [`docs/milestones.md`](docs/milestones.md) for the implementation source of truth, [`docs/evaluation-specification.md`](docs/evaluation-specification.md) for the M2 contract, [`docs/local-runner.md`](docs/local-runner.md) for M3, [`docs/evaluators.md`](docs/evaluators.md) for M4, [`docs/policy.md`](docs/policy.md) for M5, [`docs/json-report.md`](docs/json-report.md) for M6, and [`docs/architecture.md`](docs/architecture.md) for the target architecture. Target-state documentation is broader than the implemented milestone scope.
