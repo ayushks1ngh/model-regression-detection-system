@@ -1,0 +1,19 @@
+{
+  "responses": {
+    "refund-policy": {
+      "output": "You can request a refund within 30 days.",
+      "input_tokens": 18,
+      "output_tokens": 9,
+      "latency_ms": 12.5
+    },
+    "greeting": {
+      "error": {
+        "category": "rate_limited",
+        "code": "fake_rate_limit",
+        "message": "Deterministic rate-limit fixture",
+        "retryable": true
+      },
+      "latency_ms": 3.0
+    }
+  }
+}

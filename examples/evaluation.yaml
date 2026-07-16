@@ -1,0 +1,77 @@
+schema_version: "1"
+suite: customer-support-smoke
+
+prompt:
+  target:
+    kind: prompt
+    target_id: support-system-prompt
+    version: v1
+    content_hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  messages:
+    - role: system
+      content: "You are a concise customer-support assistant."
+    - role: user
+      content: "Answer this request: {request}"
+  variables:
+    - request
+
+model:
+  target:
+    kind: model
+    target_id: openrouter-openai-gpt-4.1-mini
+    version: "2025-04-14"
+    content_hash: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  provider: openrouter
+  model_id: openai/gpt-4.1-mini
+  temperature: 0.0
+  max_output_tokens: 256
+  timeout_seconds: 30.0
+
+agent:
+  target:
+    kind: agent
+    target_id: customer-support-agent
+    version: v1
+    content_hash: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  name: Customer Support Agent
+  description: Versioned orchestration identity; execution is deferred beyond M2.
+
+evaluators:
+  - name: mentions-refund-window
+    type: contains
+    required: true
+  - name: valid-json
+    type: json_valid
+    required: false
+
+cases:
+  - key: refund-policy
+    inputs:
+      request: "How long do I have to request a refund?"
+    expected: "30 days"
+    evaluators:
+      - mentions-refund-window
+    critical: true
+    tags:
+      - policy
+  - key: greeting
+    inputs:
+      request: "Hello"
+    expected: "Hello"
+    evaluators:
+      - mentions-refund-window
+    critical: false
+    tags:
+      - smoke
+
+policy:
+  minimum_pass_rate: 0.95
+  maximum_pass_rate_drop: 0.02
+  maximum_error_rate: 0.01
+  critical_cases_must_pass: true
+  maximum_latency_increase_percent: 20.0
+  maximum_cost_increase_percent: 25.0
+
+metadata:
+  owner: ai-platform
+  purpose: M2 contract example

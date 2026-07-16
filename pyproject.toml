@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "model-regression-detection-system"
+version = "0.1.0"
+description = "Production foundation for evaluating prompt, model, and agent versions"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "Model Regression Detection System Team" }]
+dependencies = [
+  "fastapi==0.116.1",
+  "pydantic==2.11.7",
+  "pydantic-settings==2.10.1",
+  "PyYAML==6.0.2",
+  "typer==0.16.0",
+  "uvicorn==0.35.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx==0.28.1",
+  "mypy==1.17.1",
+  "pytest==8.4.1",
+  "pytest-cov==6.2.1",
+  "ruff==0.12.4",
+  "types-PyYAML==6.0.12.20250516",
+]
+
+[project.scripts]
+mrds = "model_regression_detection.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/model_regression_detection"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -ra"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["model_regression_detection"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["model_regression_detection"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "ANN", "ASYNC", "S", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN201"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
