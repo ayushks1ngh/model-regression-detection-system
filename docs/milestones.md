@@ -19,8 +19,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M1 | COMPLETE | Runnable API/CLI foundation, typed settings, logging, health endpoint, tests, package, non-root Docker image |
 | M2 | COMPLETE | Strict schema-v1 evaluation specification, prompt/model/agent version provenance, safe YAML/JSON loading, canonical hashes, CLI validation |
 | M3 | COMPLETE | Deterministic provider contracts, scripted fake adapter, safe rendering, sequential local runner, CLI execution, tests, and docs |
-| M4 | IN PROGRESS | Built-in deterministic evaluator implementation and runner integration |
-| M5–M24 | NOT STARTED | No implementation work permitted until M4 is complete |
+| M4 | COMPLETE | Six deterministic evaluators, bounded evidence, provider-error handling, runner integration, tests, and docs |
+| M5 | IN PROGRESS | Local aggregation and fixed gate policy semantics |
+| M6–M24 | NOT STARTED | No implementation work permitted until M5 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -60,15 +61,17 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 
 ## M4 — Built-in deterministic evaluators
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 Implement exact, normalized, contains, bounded regex, JSON-valid, and JSON-Schema evaluators with deterministic evidence and tests.
 
 **Acceptance:** Evaluators are deterministic; malformed evaluator configuration is an error, not a failed assertion; regex is bounded; all checks pass.
 
+**Evidence:** 64 tests passed at 93.53% coverage. Ruff, strict mypy, evaluator smoke assertions, and wheel/sdist builds passed. Provider failures produce `not_applicable`; malformed expectations produce `errored`.
+
 ## M5 — Local aggregation and fixed gate policy
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Aggregate pass/error/critical-case/usage metrics and implement fixed pass/fail/error policy semantics.
 

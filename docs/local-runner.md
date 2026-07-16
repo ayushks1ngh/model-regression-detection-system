@@ -30,7 +30,7 @@ M3 supports simple Python-style named fields such as `{request}`. Attribute/inde
 
 ## Explicitly deferred
 
-- Evaluator execution and quality pass/fail results.
+- Evaluator execution and run-level aggregation/quality gate decisions.
 - Regression policies and baseline comparison.
 - Retries and concurrency.
 - OpenRouter and all external network calls.

@@ -45,6 +45,7 @@ async def test_executes_each_case_once_in_specification_order() -> None:
     assert result.error_cases == 0
     assert [case.case_key for case in result.cases] == ["refund", "second"]
     assert [case.ordinal for case in result.cases] == [0, 1]
+    assert all(case.evaluations[0].status.value == "failed" for case in result.cases)
 
 
 @pytest.mark.anyio

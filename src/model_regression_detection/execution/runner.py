@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from model_regression_detection.evaluators import EvaluationResult, evaluate_case
 from model_regression_detection.providers.contracts import (
     InferenceMessage,
     InferenceRequest,
@@ -34,6 +35,7 @@ class CaseExecutionResult(ExecutionModel):
     ordinal: Annotated[int, Field(ge=0)]
     request_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
     provider_result: InferenceResult
+    evaluations: tuple[EvaluationResult, ...]
 
 
 class LocalRunResult(ExecutionModel):
@@ -105,6 +107,7 @@ async def execute_local(
     """Execute every golden case sequentially and preserve all terminal results."""
     hashes = specification_hashes(specification)
     results: list[CaseExecutionResult] = []
+    evaluator_definitions = {evaluator.name: evaluator for evaluator in specification.evaluators}
     for ordinal, case in enumerate(specification.cases):
         request = _build_request(specification, case)
         logger.info(
@@ -126,6 +129,7 @@ async def execute_local(
                 ordinal=ordinal,
                 request_hash=_request_hash(request),
                 provider_result=provider_result,
+                evaluations=evaluate_case(case, provider_result.output, evaluator_definitions),
             )
         )
 
