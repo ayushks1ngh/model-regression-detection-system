@@ -41,6 +41,7 @@ class ErrorCategory(StrEnum):
     TIMEOUT = "timeout"
     TRANSIENT_UPSTREAM = "transient_upstream"
     CONTENT_POLICY = "content_policy"
+    BUDGET_EXCEEDED = "budget_exceeded"
     UNKNOWN = "unknown"
 
 
@@ -76,6 +77,7 @@ class InferenceResult(ProviderModel):
     resolved_model: Annotated[str | None, Field(max_length=300)] = None
     finish_reason: Annotated[str | None, Field(max_length=100)] = None
     usage: TokenUsage | None = None
+    cost: Annotated[float | None, Field(ge=0.0)] = None
     latency_ms: Annotated[float, Field(ge=0.0)]
     error: ProviderError | None = None
 

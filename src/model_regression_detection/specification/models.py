@@ -131,6 +131,17 @@ class RegressionPolicy(StrictModel):
     maximum_cost_increase_percent: Annotated[float | None, Field(ge=0.0)] = None
 
 
+class ExecutionLimits(StrictModel):
+    """Optional bounded per-run execution limits."""
+
+    max_cases: Annotated[int | None, Field(ge=1, le=100_000)] = None
+    max_output_tokens: Annotated[int | None, Field(ge=1, le=1_000_000)] = None
+    max_concurrency: Annotated[int, Field(ge=1, le=64)] = 1
+    max_estimated_cost: Annotated[float | None, Field(ge=0.0)] = None
+    max_total_cost: Annotated[float | None, Field(ge=0.0)] = None
+    estimated_cost_per_case: Annotated[float | None, Field(ge=0.0)] = None
+
+
 class EvaluationSpecificationV1(StrictModel):
     """Complete immutable evaluation specification for schema version 1."""
 
@@ -142,6 +153,7 @@ class EvaluationSpecificationV1(StrictModel):
     evaluators: Annotated[tuple[EvaluatorDefinition, ...], Field(min_length=1, max_length=50)]
     cases: Annotated[tuple[GoldenCase, ...], Field(min_length=1, max_length=100_000)]
     policy: RegressionPolicy
+    limits: ExecutionLimits = Field(default_factory=lambda: ExecutionLimits())
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
     @model_validator(mode="after")

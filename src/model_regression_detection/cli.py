@@ -10,6 +10,7 @@ import typer
 
 from model_regression_detection import __version__
 from model_regression_detection.execution import execute_local_evaluation
+from model_regression_detection.execution.limits import LimitExceededError
 from model_regression_detection.providers.fake import FakeProvider
 from model_regression_detection.providers.fixtures import load_fake_responses
 from model_regression_detection.reporting import build_json_report
@@ -107,7 +108,11 @@ def run_local(
         typer.echo(f"Local run input failed: {exc}", err=True)
         raise typer.Exit(code=2) from None
 
-    report = asyncio.run(execute_local_evaluation(specification, FakeProvider(responses)))
+    try:
+        report = asyncio.run(execute_local_evaluation(specification, FakeProvider(responses)))
+    except LimitExceededError as exc:
+        typer.echo(f"Execution limit exceeded [{exc.code}]: {exc}", err=True)
+        raise typer.Exit(code=2) from None
     serialized = report.model_dump_json(indent=2)
     if output_path is not None:
         output_path.write_text(f"{serialized}\n", encoding="utf-8")

@@ -6,11 +6,15 @@ import string
 from hashlib import sha256
 
 from model_regression_detection.evaluators import evaluate_case
+from model_regression_detection.execution.limits import effective_output_tokens, preflight_check
 from model_regression_detection.execution.models import CaseExecutionResult, LocalRunResult
 from model_regression_detection.providers.contracts import (
+    ErrorCategory,
     InferenceMessage,
     InferenceRequest,
+    InferenceResult,
     Provider,
+    ProviderError,
 )
 from model_regression_detection.specification.loader import specification_hashes
 from model_regression_detection.specification.models import EvaluationSpecification, GoldenCase
@@ -52,7 +56,7 @@ def _build_request(
             for message in specification.prompt.messages
         ),
         temperature=specification.model.temperature,
-        max_output_tokens=specification.model.max_output_tokens,
+        max_output_tokens=effective_output_tokens(specification),
         timeout_seconds=specification.model.timeout_seconds,
     )
 
@@ -73,16 +77,37 @@ async def execute_local(
     provider: Provider,
 ) -> LocalRunResult:
     """Execute every golden case sequentially and preserve all terminal results."""
+    preflight_check(specification)
     hashes = specification_hashes(specification)
     results: list[CaseExecutionResult] = []
     evaluator_definitions = {evaluator.name: evaluator for evaluator in specification.evaluators}
+    max_total_cost = specification.limits.max_total_cost
+    accumulated_cost = 0.0
     for ordinal, case in enumerate(specification.cases):
         request = _build_request(specification, case)
-        logger.info(
-            "local_case_started",
-            extra={"suite": specification.suite, "case_key": case.key},
-        )
-        provider_result = await provider.generate(request)
+        if max_total_cost is not None and accumulated_cost >= max_total_cost:
+            logger.info(
+                "local_case_skipped_budget",
+                extra={"suite": specification.suite, "case_key": case.key},
+            )
+            provider_result = InferenceResult(
+                status="error",
+                latency_ms=0.0,
+                error=ProviderError(
+                    category=ErrorCategory.BUDGET_EXCEEDED,
+                    code="max_total_cost_exceeded",
+                    message=f"Run cost cap {max_total_cost} reached before this case",
+                    retryable=False,
+                ),
+            )
+        else:
+            logger.info(
+                "local_case_started",
+                extra={"suite": specification.suite, "case_key": case.key},
+            )
+            provider_result = await provider.generate(request)
+            if provider_result.cost is not None:
+                accumulated_cost += provider_result.cost
         logger.info(
             "local_case_completed",
             extra={

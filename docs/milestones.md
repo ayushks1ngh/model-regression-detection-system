@@ -23,8 +23,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M5 | COMPLETE | Deterministic case aggregation and fixed pass/fail/error gate with ordered rule evidence |
 | M6 | COMPLETE | Versioned, bounded, deterministic local JSON report with provenance and redaction |
 | M7 | COMPLETE | OpenRouter adapter with normalized responses, typed errors, secret safety, and mocked contract tests |
-| M8 | IN PROGRESS | Per-run execution limits |
-| M9–M24 | NOT STARTED | No implementation work permitted until M8 is complete |
+| M8 | COMPLETE | Preflight case/cost rejection, per-request token cap, and runtime hard cost cap as execution errors |
+| M9 | IN PROGRESS | PostgreSQL persistence |
+| M10–M24 | NOT STARTED | No implementation work permitted until M9 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -112,15 +113,17 @@ Add OpenRouter behind the M3 provider port with normalized responses, timeouts, 
 
 ## M8 — Per-run execution limits
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 Add case, token, concurrency, estimated-cost, and known actual-cost caps.
 
 **Acceptance:** Preflight/runtime limits fail safely as execution errors and prevent excess new calls.
 
+**Evidence:** 94 tests passed (1 opt-in live test skipped) at 93.16% coverage. Ruff, strict mypy, preflight/token/cost-cap tests, and package builds passed. Over-limit runs produce execution errors, never quality failures; unknown cost is never fabricated as spend.
+
 ## M9 — PostgreSQL persistence
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Add the minimal project/run/job/attempt/result/baseline/artifact schema, migrations, and repositories.
 

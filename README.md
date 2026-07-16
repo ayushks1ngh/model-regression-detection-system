@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 7 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, and an OpenRouter provider adapter. Persistence, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 8 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, and per-run execution limits. Persistence, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 

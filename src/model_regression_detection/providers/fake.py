@@ -20,6 +20,7 @@ class FakeResponse:
     input_tokens: int = 0
     output_tokens: int = 0
     latency_ms: float = 0.0
+    cost: float | None = None
 
     def __post_init__(self) -> None:
         """Require exactly one scripted outcome."""
@@ -27,6 +28,8 @@ class FakeResponse:
             raise ValueError("FakeResponse requires exactly one of output or error")
         if self.input_tokens < 0 or self.output_tokens < 0 or self.latency_ms < 0:
             raise ValueError("FakeResponse usage and latency cannot be negative")
+        if self.cost is not None and self.cost < 0:
+            raise ValueError("FakeResponse cost cannot be negative")
 
 
 class FakeProvider:
@@ -65,5 +68,6 @@ class FakeProvider:
                 output_tokens=response.output_tokens,
                 total_tokens=response.input_tokens + response.output_tokens,
             ),
+            cost=response.cost,
             latency_ms=response.latency_ms,
         )
