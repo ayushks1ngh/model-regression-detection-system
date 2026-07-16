@@ -4,15 +4,12 @@ import json
 import logging
 import string
 from hashlib import sha256
-from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from model_regression_detection.evaluators import EvaluationResult, evaluate_case
+from model_regression_detection.evaluators import evaluate_case
+from model_regression_detection.execution.models import CaseExecutionResult, LocalRunResult
 from model_regression_detection.providers.contracts import (
     InferenceMessage,
     InferenceRequest,
-    InferenceResult,
     Provider,
 )
 from model_regression_detection.specification.loader import specification_hashes
@@ -20,35 +17,6 @@ from model_regression_detection.specification.models import EvaluationSpecificat
 
 logger = logging.getLogger(__name__)
 _formatter = string.Formatter()
-
-
-class ExecutionModel(BaseModel):
-    """Strict immutable base for local execution evidence."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class CaseExecutionResult(ExecutionModel):
-    """Terminal provider evidence for one golden case."""
-
-    case_key: str
-    ordinal: Annotated[int, Field(ge=0)]
-    request_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
-    provider_result: InferenceResult
-    evaluations: tuple[EvaluationResult, ...]
-
-
-class LocalRunResult(ExecutionModel):
-    """Complete sequential local run result in deterministic case order."""
-
-    status: Literal["completed"]
-    suite: str
-    configuration_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
-    dataset_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
-    total_cases: Annotated[int, Field(ge=1)]
-    successful_cases: Annotated[int, Field(ge=0)]
-    error_cases: Annotated[int, Field(ge=0)]
-    cases: tuple[CaseExecutionResult, ...]
 
 
 def _json_text(value: object) -> str:

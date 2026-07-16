@@ -114,10 +114,11 @@ def test_run_local_command_writes_deterministic_result(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
-    assert "total=2 success=1 errors=1" in result.stdout
+    assert "total=2 success=1 errors=1 gate=error" in result.stdout
     payload = json.loads(output.read_text(encoding="utf-8"))
-    assert payload["status"] == "completed"
-    assert [case["case_key"] for case in payload["cases"]] == ["refund-policy", "greeting"]
+    assert payload["run"]["status"] == "completed"
+    assert [case["case_key"] for case in payload["run"]["cases"]] == ["refund-policy", "greeting"]
+    assert payload["gate"]["outcome"] == "error"
 
 
 def test_run_local_command_rejects_invalid_fixture(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 4 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, and six built-in deterministic evaluators. OpenRouter, persistence, workers, reports, and regression-gate logic intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 5 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, and local aggregation with a fixed pass/fail/error gate. OpenRouter, persistence, workers, reports, and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 
@@ -84,5 +84,6 @@ Invalid or unknown settings fail at startup. Do not put credentials in these gen
 - `providers/`: provider-neutral contracts and the deterministic fake adapter.
 - `execution/`: sequential local rendering, provider result accounting, and evaluator invocation.
 - `evaluators/`: fixed deterministic assertions and bounded evidence.
+- `policy/`: deterministic aggregation and the fixed local pass/fail/error gate.
 
-See [`docs/milestones.md`](docs/milestones.md) for the implementation source of truth, [`docs/evaluation-specification.md`](docs/evaluation-specification.md) for the M2 contract, [`docs/local-runner.md`](docs/local-runner.md) for M3, [`docs/evaluators.md`](docs/evaluators.md) for M4, and [`docs/architecture.md`](docs/architecture.md) for the target architecture. Target-state documentation is broader than the implemented milestone scope.
+See [`docs/milestones.md`](docs/milestones.md) for the implementation source of truth, [`docs/evaluation-specification.md`](docs/evaluation-specification.md) for the M2 contract, [`docs/local-runner.md`](docs/local-runner.md) for M3, [`docs/evaluators.md`](docs/evaluators.md) for M4, [`docs/policy.md`](docs/policy.md) for M5, and [`docs/architecture.md`](docs/architecture.md) for the target architecture. Target-state documentation is broader than the implemented milestone scope.

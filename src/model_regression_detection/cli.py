@@ -9,7 +9,7 @@ import httpx
 import typer
 
 from model_regression_detection import __version__
-from model_regression_detection.execution import execute_local
+from model_regression_detection.execution import execute_local_evaluation
 from model_regression_detection.providers.fake import FakeProvider
 from model_regression_detection.providers.fixtures import load_fake_responses
 from model_regression_detection.specification import (
@@ -102,13 +102,14 @@ def run_local(
         typer.echo(f"Local run input failed: {exc}", err=True)
         raise typer.Exit(code=2) from None
 
-    result = asyncio.run(execute_local(specification, FakeProvider(responses)))
-    serialized = result.model_dump_json(indent=2)
+    report = asyncio.run(execute_local_evaluation(specification, FakeProvider(responses)))
+    serialized = report.model_dump_json(indent=2)
     if output_path is not None:
         output_path.write_text(f"{serialized}\n", encoding="utf-8")
     typer.echo(
-        f"completed suite={result.suite} total={result.total_cases} "
-        f"success={result.successful_cases} errors={result.error_cases}"
+        f"completed suite={report.run.suite} total={report.run.total_cases} "
+        f"success={report.run.successful_cases} errors={report.run.error_cases} "
+        f"gate={report.gate.outcome.value}"
     )
     if output_path is None:
         typer.echo(serialized)

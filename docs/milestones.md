@@ -20,8 +20,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M2 | COMPLETE | Strict schema-v1 evaluation specification, prompt/model/agent version provenance, safe YAML/JSON loading, canonical hashes, CLI validation |
 | M3 | COMPLETE | Deterministic provider contracts, scripted fake adapter, safe rendering, sequential local runner, CLI execution, tests, and docs |
 | M4 | COMPLETE | Six deterministic evaluators, bounded evidence, provider-error handling, runner integration, tests, and docs |
-| M5 | IN PROGRESS | Local aggregation and fixed gate policy semantics |
-| M6–M24 | NOT STARTED | No implementation work permitted until M5 is complete |
+| M5 | COMPLETE | Deterministic case aggregation and fixed pass/fail/error gate with ordered rule evidence |
+| M6 | IN PROGRESS | Versioned local JSON report |
+| M7–M24 | NOT STARTED | No implementation work permitted until M6 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -70,6 +71,16 @@ Implement exact, normalized, contains, bounded regex, JSON-valid, and JSON-Schem
 **Evidence:** 64 tests passed at 93.53% coverage. Ruff, strict mypy, evaluator smoke assertions, and wheel/sdist builds passed. Provider failures produce `not_applicable`; malformed expectations produce `errored`.
 
 ## M5 — Local aggregation and fixed gate policy
+
+**Status:** COMPLETE
+
+Aggregate pass/error/critical-case/usage metrics and implement fixed pass/fail/error policy semantics.
+
+**Acceptance:** Quality failures, execution errors, and passes are distinct; threshold boundaries and deterministic replay pass tests.
+
+**Evidence:** 72 tests passed at 94.18% coverage. Ruff, strict mypy, deterministic gate replay, run/gate smoke assertions, and package builds passed. Baseline-relative rules are `not_applicable` until M15. A circular import between runner and policy was resolved by separating `execution/models.py` evidence from `execution/report.py` orchestration.
+
+## M6 — Local JSON report
 
 **Status:** IN PROGRESS
 
