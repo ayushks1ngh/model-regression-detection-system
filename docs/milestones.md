@@ -22,8 +22,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M4 | COMPLETE | Six deterministic evaluators, bounded evidence, provider-error handling, runner integration, tests, and docs |
 | M5 | COMPLETE | Deterministic case aggregation and fixed pass/fail/error gate with ordered rule evidence |
 | M6 | COMPLETE | Versioned, bounded, deterministic local JSON report with provenance and redaction |
-| M7 | IN PROGRESS | OpenRouter provider adapter |
-| M8–M24 | NOT STARTED | No implementation work permitted until M7 is complete |
+| M7 | COMPLETE | OpenRouter adapter with normalized responses, typed errors, secret safety, and mocked contract tests |
+| M8 | IN PROGRESS | Per-run execution limits |
+| M9–M24 | NOT STARTED | No implementation work permitted until M8 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -101,15 +102,17 @@ Produce a versioned, bounded, redacted JSON report with provenance, decisions, m
 
 ## M7 — OpenRouter provider adapter
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 Add OpenRouter behind the M3 provider port with normalized responses, timeouts, usage/cost capture, typed errors, and mocked contract tests.
 
 **Acceptance:** Success and all required failure mappings pass; secrets never leak; absent cost remains unknown.
 
+**Evidence:** 88 tests passed (1 opt-in live test skipped) at 93.30% coverage. Ruff, strict mypy, mocked-transport contract tests, secret-leak assertion, and package builds passed. `httpx` was promoted from a dev to a runtime dependency, fixing a latent CLI import gap.
+
 ## M8 — Per-run execution limits
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Add case, token, concurrency, estimated-cost, and known actual-cost caps.
 

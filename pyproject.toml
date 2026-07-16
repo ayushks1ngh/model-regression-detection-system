@@ -12,6 +12,7 @@ license = { text = "Proprietary" }
 authors = [{ name = "Model Regression Detection System Team" }]
 dependencies = [
   "fastapi==0.116.1",
+  "httpx==0.28.1",
   "pydantic==2.11.7",
   "pydantic-settings==2.10.1",
   "PyYAML==6.0.2",
@@ -23,7 +24,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "httpx==0.28.1",
   "mypy==1.17.1",
   "pytest==8.4.1",
   "pytest-cov==6.2.1",

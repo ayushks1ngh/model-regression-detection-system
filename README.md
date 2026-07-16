@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 6 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, and a versioned local JSON report. OpenRouter, persistence, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 7 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, and an OpenRouter provider adapter. Persistence, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 
@@ -82,7 +82,7 @@ Invalid or unknown settings fail at startup. Do not put credentials in these gen
 - `cli.py`: operational CLI.
 - `domain/versions.py`: shared immutable references for prompt, model, and agent versions.
 - `specification/`: strict schema-v1 models, safe YAML/JSON loading, and canonical hashing.
-- `providers/`: provider-neutral contracts and the deterministic fake adapter.
+- `providers/`: provider-neutral contracts, the deterministic fake adapter, and the OpenRouter adapter.
 - `execution/`: sequential local rendering, provider result accounting, and evaluator invocation.
 - `evaluators/`: fixed deterministic assertions and bounded evidence.
 - `policy/`: deterministic aggregation and the fixed local pass/fail/error gate.

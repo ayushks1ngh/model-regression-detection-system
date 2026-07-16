@@ -10,6 +10,7 @@ from model_regression_detection.providers.contracts import (
     TokenUsage,
 )
 from model_regression_detection.providers.fake import FakeProvider, FakeResponse
+from model_regression_detection.providers.openrouter import OpenRouterProvider
 
 __all__ = [
     "ErrorCategory",
@@ -18,6 +19,7 @@ __all__ = [
     "InferenceMessage",
     "InferenceRequest",
     "InferenceResult",
+    "OpenRouterProvider",
     "Provider",
     "ProviderError",
     "TokenUsage",
