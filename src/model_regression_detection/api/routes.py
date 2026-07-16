@@ -2,12 +2,13 @@
 
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, Response, status
 
 from model_regression_detection import __version__
-from model_regression_detection.api.schemas import LiveResponse
+from model_regression_detection.api.schemas import LiveResponse, ReadyResponse
 from model_regression_detection.config import Settings
 from model_regression_detection.domain.versions import TargetKind
+from model_regression_detection.persistence import database_ready
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -29,3 +30,15 @@ async def live(request: Request) -> LiveResponse:
         timestamp=datetime.now(tz=UTC),
         supported_target_kinds=tuple(TargetKind),
     )
+
+
+@router.get("/ready", response_model=ReadyResponse, summary="Dependency readiness")
+async def ready(request: Request, response: Response) -> ReadyResponse:
+    """Report readiness, returning 503 when a configured dependency is unavailable."""
+    engine = getattr(request.app.state, "db_engine", None)
+    if engine is None:
+        return ReadyResponse(status="ready", database="not_configured")
+    if await database_ready(engine):
+        return ReadyResponse(status="ready", database="ok")
+    response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return ReadyResponse(status="not_ready", database="unavailable")

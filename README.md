@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 8 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, and per-run execution limits. Persistence, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 9 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health and readiness checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, per-run execution limits, and optional PostgreSQL persistence with migrations. Run submission APIs, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 
@@ -31,6 +31,15 @@ uv run mrds run-local examples/evaluation.yaml --responses examples/fake-respons
 uv run mrds run-local examples/evaluation.yaml --responses examples/fake-responses.json --report report.json
 uv run mrds health --url http://127.0.0.1:8000
 curl http://127.0.0.1:8000/health/live
+```
+
+## Persistence
+
+Persistence and readiness are optional and activate only when a database URL is configured. See [`docs/persistence.md`](docs/persistence.md).
+
+```bash
+export MRDS_DATABASE_URL="postgresql+asyncpg://user:password@localhost:5432/mrds"
+uv run alembic upgrade head
 ```
 
 ## Quality checks

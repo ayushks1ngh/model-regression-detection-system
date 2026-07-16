@@ -24,8 +24,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M6 | COMPLETE | Versioned, bounded, deterministic local JSON report with provenance and redaction |
 | M7 | COMPLETE | OpenRouter adapter with normalized responses, typed errors, secret safety, and mocked contract tests |
 | M8 | COMPLETE | Preflight case/cost rejection, per-request token cap, and runtime hard cost cap as execution errors |
-| M9 | IN PROGRESS | PostgreSQL persistence |
-| M10–M24 | NOT STARTED | No implementation work permitted until M9 is complete |
+| M9 | COMPLETE | Async PostgreSQL schema, Alembic migrations, run repository, and readiness check |
+| M10 | IN PROGRESS | Run submission and status API |
+| M11–M24 | NOT STARTED | No implementation work permitted until M10 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -123,15 +124,17 @@ Add case, token, concurrency, estimated-cost, and known actual-cost caps.
 
 ## M9 — PostgreSQL persistence
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 Add the minimal project/run/job/attempt/result/baseline/artifact schema, migrations, and repositories.
 
 **Acceptance:** Clean migration and reconstruction pass; constraints prevent duplicates; transactions do not leave partial runs.
 
+**Evidence:** 101 tests passed (2 opt-in skips) at 93.17% coverage. Real PostgreSQL validated the asyncpg round-trip and Alembic upgrade/downgrade; offline tests use in-memory SQLite. Duplicate case keys and partial-transaction rollback are covered. Async lazy-load was fixed with eager `selectinload`; migrations use `psycopg2-binary`.
+
 ## M10 — Run submission and status API
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Add run submission/status endpoints, immutable snapshots, idempotency, source metadata, and atomic job creation.
 

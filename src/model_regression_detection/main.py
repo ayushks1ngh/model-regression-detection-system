@@ -11,6 +11,7 @@ from model_regression_detection.api.middleware import RequestContextMiddleware
 from model_regression_detection.api.routes import router as health_router
 from model_regression_detection.config import Settings, get_settings
 from model_regression_detection.logging import configure_logging
+from model_regression_detection.persistence.engine import create_engine, dispose_engine
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     configure_logging(resolved_settings)
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        engine = (
+            create_engine(resolved_settings.database_url)
+            if resolved_settings.database_url is not None
+            else None
+        )
+        application.state.db_engine = engine
         logger.info(
             "application_started",
             extra={
                 "service": resolved_settings.app_name,
                 "version": __version__,
                 "environment": resolved_settings.environment.value,
+                "database_configured": engine is not None,
             },
         )
         yield
+        if engine is not None:
+            await dispose_engine(engine)
         logger.info("application_stopped", extra={"service": resolved_settings.app_name})
 
     application = FastAPI(

@@ -47,3 +47,25 @@ def test_production_disables_interactive_docs() -> None:
         response = production_client.get("/docs")
 
     assert response.status_code == 404
+
+
+def test_ready_without_database_reports_not_configured(client: TestClient) -> None:
+    response = client.get("/health/ready")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["database"] == "not_configured"
+
+
+def test_ready_with_database_checks_connectivity() -> None:
+    settings = Settings(
+        environment=Environment.TEST,
+        log_format="text",
+        database_url="sqlite+aiosqlite:///:memory:",
+    )
+    with TestClient(create_app(settings)) as db_client:
+        response = db_client.get("/health/ready")
+
+    assert response.status_code == 200
+    assert response.json()["database"] == "ok"

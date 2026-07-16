@@ -20,3 +20,12 @@ class LiveResponse(BaseModel):
     environment: Environment
     timestamp: datetime
     supported_target_kinds: tuple[TargetKind, ...]
+
+
+class ReadyResponse(BaseModel):
+    """Readiness response reflecting required dependency availability."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["ready", "not_ready"]
+    database: Literal["ok", "unavailable", "not_configured"]
