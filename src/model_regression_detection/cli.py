@@ -1,7 +1,10 @@
 """Operational command-line interface."""
 
 import asyncio
+import contextlib
 import json
+import os
+import signal
 from pathlib import Path
 from typing import Annotated
 
@@ -9,16 +12,21 @@ import httpx
 import typer
 
 from model_regression_detection import __version__
+from model_regression_detection.config import get_settings
 from model_regression_detection.execution import execute_local_evaluation
 from model_regression_detection.execution.limits import LimitExceededError
+from model_regression_detection.persistence.engine import create_engine, create_session_factory
+from model_regression_detection.providers.contracts import Provider
 from model_regression_detection.providers.fake import FakeProvider
 from model_regression_detection.providers.fixtures import load_fake_responses
+from model_regression_detection.providers.openrouter import OpenRouterProvider
 from model_regression_detection.reporting import build_json_report
 from model_regression_detection.specification import (
     SpecificationLoadError,
     load_specification,
     specification_hashes,
 )
+from model_regression_detection.workers import Worker
 
 app = typer.Typer(
     name="mrds",
@@ -159,3 +167,56 @@ def health(
         typer.echo("Health check failed: unexpected service status", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"ok service={payload.get('service', 'unknown')} version={payload.get('version')}")
+
+
+@app.command()
+def worker(
+    lease_seconds: Annotated[
+        int,
+        typer.Option(min=5, max=3600, help="Worker lease duration in seconds."),
+    ] = 60,
+    poll_interval_seconds: Annotated[
+        float,
+        typer.Option(min=0.1, max=60.0, help="Idle poll interval in seconds."),
+    ] = 1.0,
+) -> None:
+    """Run a durable worker that claims and executes persisted runs.
+
+    Requires MRDS_DATABASE_URL. Requires MRDS_OPENROUTER_API_KEY unless
+    MRDS_WORKER_FAKE_PROVIDER is set, which is intended for local smoke testing only.
+    """
+    settings = get_settings()
+    if settings.database_url is None:
+        typer.echo("Worker requires MRDS_DATABASE_URL to be configured", err=True)
+        raise typer.Exit(code=2)
+
+    if os.environ.get("MRDS_WORKER_FAKE_PROVIDER"):
+        provider: Provider = FakeProvider({})
+    else:
+        api_key = os.environ.get("MRDS_OPENROUTER_API_KEY")
+        if not api_key:
+            typer.echo("Worker requires MRDS_OPENROUTER_API_KEY to be configured", err=True)
+            raise typer.Exit(code=2)
+        provider = OpenRouterProvider(api_key_provider=lambda: api_key)
+
+    async def _run() -> None:
+        engine = create_engine(settings.database_url)  # type: ignore[arg-type]
+        session_factory = create_session_factory(engine)
+        instance = Worker(
+            session_factory,
+            provider,
+            lease_seconds=lease_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            with contextlib.suppress(NotImplementedError, AttributeError):
+                loop.add_signal_handler(sig, instance.request_stop)
+        typer.echo(f"worker started worker_id={instance.worker_id}")
+        try:
+            await instance.run_forever()
+        finally:
+            await engine.dispose()
+        typer.echo("worker stopped")
+
+    asyncio.run(_run())

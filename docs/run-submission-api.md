@@ -64,4 +64,4 @@ uv run pytest tests/test_runs_api.py tests/test_persistence.py
 
 ## Deferred
 
-Execution, cancellation, comparison, and reporting endpoints are introduced in M11 onward.
+Execution, cancellation, comparison, and reporting endpoints are introduced in M11 onward. M11 adds the worker that executes `created` runs; see [`docs/worker.md`](docs/worker.md). M11 adds the worker that executes `created` runs; see [`docs/worker.md`](docs/worker.md).

@@ -1,9 +1,10 @@
 """Repository for persisting and reconstructing evaluation runs."""
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -83,36 +84,55 @@ class RunRepository:
             state="created",
         )
         self._session.add(run)
-        if idempotency_key is not None:
-            self._session.add(
-                IdempotencyRecordRow(
-                    id=uuid4().hex,
-                    project_id=project_id,
-                    idempotency_key=idempotency_key,
-                    request_hash=request_hash or "",
-                    run_id=run_id,
-                )
-            )
         try:
             await self._session.flush()
         except IntegrityError:
             await self._session.rollback()
-            if idempotency_key is None:
-                raise
+            raise
+
+        if idempotency_key is None:
+            return run_id
+
+        self._session.add(
+            IdempotencyRecordRow(
+                id=uuid4().hex,
+                project_id=project_id,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash or "",
+                run_id=run_id,
+            )
+        )
+        try:
+            await self._session.flush()
+        except IntegrityError:
+            await self._session.rollback()
             return await self.find_idempotent_run(project_id, idempotency_key, request_hash or "")
         return run_id
 
-    async def complete_run(self, run_id: str, report: LocalEvaluationReport) -> None:
-        """Transition a created run to a terminal state with full evidence."""
+    async def complete_run(
+        self,
+        run_id: str,
+        report: LocalEvaluationReport,
+        worker_id: str | None = None,
+    ) -> bool:
+        """Transition a running run to a terminal state with full evidence.
+
+        When worker_id is provided, completion is rejected (returns False) if this
+        worker no longer holds the run's lease, preventing a stale worker from
+        overwriting evidence selected by whoever reclaimed the run.
+        """
         run = await self._session.get(RunRow, run_id)
         if run is None:
             raise LookupError(f"Run {run_id!r} does not exist")
+        if worker_id is not None and run.worker_id != worker_id:
+            return False
         summaries = {case.case_key: case for case in report.gate.cases}
         run.execution_status = report.run.status
         run.gate_outcome = report.gate.outcome.value
         run.total_cases = report.run.total_cases
         run.metrics = report.gate.metrics.model_dump(mode="json")
         run.state = "completed" if report.run.status == "completed" else "failed"
+        run.completed_at = datetime.now(UTC)
         for case in report.run.cases:
             cost = case.provider_result.cost
             self._session.add(
@@ -128,6 +148,47 @@ class RunRepository:
                 )
             )
         await self._session.flush()
+        return True
+
+    async def claim_next_run(self, worker_id: str, lease_seconds: int) -> str | None:
+        """Atomically claim one runnable run for this worker, or return None.
+
+        A run is runnable when it is newly created, or when a previous worker's
+        lease on a running run has expired. The conditional UPDATE guarantees at
+        most one concurrent worker can win the claim for a given run.
+        """
+        now = datetime.now(UTC)
+        lease_expires_at = now + timedelta(seconds=lease_seconds)
+        for candidate_state, extra_condition in (
+            ("created", RunRow.state == "created"),
+            ("running", (RunRow.state == "running") & (RunRow.lease_expires_at < now)),
+        ):
+            result = await self._session.execute(
+                select(RunRow.id).where(extra_condition).order_by(RunRow.created_at).limit(1)
+            )
+            run_id = result.scalar_one_or_none()
+            if run_id is None:
+                continue
+            update_result = await self._session.execute(
+                update(RunRow)
+                .where(RunRow.id == run_id, RunRow.state == candidate_state)
+                .values(state="running", worker_id=worker_id, lease_expires_at=lease_expires_at)
+            )
+            await self._session.flush()
+            if update_result.rowcount == 1:
+                return run_id
+        return None
+
+    async def heartbeat(self, run_id: str, worker_id: str, lease_seconds: int) -> bool:
+        """Extend a run's lease; return False if this worker no longer owns it."""
+        lease_expires_at = datetime.now(UTC) + timedelta(seconds=lease_seconds)
+        result = await self._session.execute(
+            update(RunRow)
+            .where(RunRow.id == run_id, RunRow.worker_id == worker_id, RunRow.state == "running")
+            .values(lease_expires_at=lease_expires_at)
+        )
+        await self._session.flush()
+        return result.rowcount == 1
 
     async def get_run(self, run_id: str) -> RunRow | None:
         """Load a run with its ordered cases, or None when absent."""

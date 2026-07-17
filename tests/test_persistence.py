@@ -144,6 +144,40 @@ async def test_idempotent_submission_conflict_on_different_body() -> None:
     await dispose_engine(engine)
 
 
+@pytest.mark.skipif(
+    not os.environ.get("MRDS_TEST_POSTGRES_URL"),
+    reason="Set MRDS_TEST_POSTGRES_URL to run the PostgreSQL integration test",
+)
+async def test_postgres_first_idempotent_submission_succeeds() -> None:  # pragma: no cover
+    """Regression test: PostgreSQL enforces run/idempotency-record insert order.
+
+    SQLite does not enforce this foreign key ordering within one flush by
+    default, so this defect was only observable against a real PostgreSQL
+    database. create_run must flush the run insert before the idempotency
+    record insert.
+    """
+    engine = create_async_engine(os.environ["MRDS_TEST_POSTGRES_URL"])
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.drop_all)
+        await connection.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    specification = _specification()
+
+    async with factory() as session:
+        repository = RunRepository(session)
+        await repository.ensure_project("proj-1", "proj-1", "One")
+        await session.commit()
+
+    async with factory() as session:
+        run_id = await RunRepository(session).create_run(
+            "proj-1", specification, "a" * 64, "b" * 64, "key-1", "hash-1"
+        )
+        await session.commit()
+
+    assert run_id
+    await dispose_engine(engine)
+
+
 async def test_duplicate_case_key_is_rejected() -> None:
     engine = await _sqlite_engine()
     factory = async_sessionmaker(engine, expire_on_commit=False)

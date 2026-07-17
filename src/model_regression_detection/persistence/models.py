@@ -64,6 +64,10 @@ class RunRow(Base):
     dataset_hash: Mapped[str] = mapped_column(String(64))
     snapshot: Mapped[dict[str, Any]] = mapped_column(PortableJson)
     state: Mapped[str] = mapped_column(String(32))
+    worker_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     execution_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     gate_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
     total_cases: Mapped[int | None] = mapped_column(Integer, nullable=True)

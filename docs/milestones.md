@@ -26,8 +26,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M8 | COMPLETE | Preflight case/cost rejection, per-request token cap, and runtime hard cost cap as execution errors |
 | M9 | COMPLETE | Async PostgreSQL schema, Alembic migrations, run repository, and readiness check |
 | M10 | COMPLETE | Run submission API with immutable snapshot, idempotency, and status retrieval |
-| M11 | IN PROGRESS | PostgreSQL-backed worker |
-| M12–M24 | NOT STARTED | No implementation work permitted until M11 is complete |
+| M11 | COMPLETE | PostgreSQL-backed worker with atomic claim, lease expiry reclaim, and graceful shutdown |
+| M12 | IN PROGRESS | Retries and lease recovery |
+| M13–M24 | NOT STARTED | No implementation work permitted until M12 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -145,15 +146,19 @@ Add run submission/status endpoints, immutable snapshots, idempotency, source me
 
 ## M11 — PostgreSQL-backed worker
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 Add leased asynchronous job claiming, provider execution, result persistence, and graceful shutdown.
 
 **Acceptance:** Multiple workers cannot select duplicate evidence; API does not execute provider calls.
 
+**Evidence:** 120 tests passed (3 opt-in skips) at 90.67% coverage. Ruff, strict mypy, and package build passed. Verified against real PostgreSQL: full end-to-end API-submit → worker-execute → status-complete flow, atomic claim exclusivity, lease expiry reclaim, and stale-worker rejection on completion.
+
+**Defect found and fixed:** `create_run` added the run row and its idempotency record to the same flush. PostgreSQL enforces foreign-key insert ordering strictly and raised `ForeignKeyViolationError` on every idempotent submission; SQLite did not enforce this, so the offline test suite never caught it. Fixed by flushing the run insert before the idempotency record. Added a Postgres-only regression test.
+
 ## M12 — Retries and lease recovery
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Add bounded retry/backoff, heartbeat, lease reclamation, and stale-owner protection.
 
