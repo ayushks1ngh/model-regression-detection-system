@@ -25,8 +25,9 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M7 | COMPLETE | OpenRouter adapter with normalized responses, typed errors, secret safety, and mocked contract tests |
 | M8 | COMPLETE | Preflight case/cost rejection, per-request token cap, and runtime hard cost cap as execution errors |
 | M9 | COMPLETE | Async PostgreSQL schema, Alembic migrations, run repository, and readiness check |
-| M10 | IN PROGRESS | Run submission and status API |
-| M11–M24 | NOT STARTED | No implementation work permitted until M10 is complete |
+| M10 | COMPLETE | Run submission API with immutable snapshot, idempotency, and status retrieval |
+| M11 | IN PROGRESS | PostgreSQL-backed worker |
+| M12–M24 | NOT STARTED | No implementation work permitted until M11 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -134,15 +135,17 @@ Add the minimal project/run/job/attempt/result/baseline/artifact schema, migrati
 
 ## M10 — Run submission and status API
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 Add run submission/status endpoints, immutable snapshots, idempotency, source metadata, and atomic job creation.
 
 **Acceptance:** Idempotency and conflict behavior pass; no incomplete job manifest can be committed.
 
+**Evidence:** 113 tests passed (2 opt-in skips) at 92.97% coverage. Ruff, strict mypy, and package build passed. Both migrations (`0001_initial`, `0002_run_lifecycle`) validated against real PostgreSQL including upgrade, downgrade, and re-upgrade. Run state (`created`/`completed`/`failed`) is separate from gate outcome, which stays `null` until completion. `RunRepository` was extended from single-shot `save_report` to a `create_run`/`complete_run` lifecycle with project-scoped idempotency.
+
 ## M11 — PostgreSQL-backed worker
 
-**Status:** NOT STARTED
+**Status:** IN PROGRESS
 
 Add leased asynchronous job claiming, provider execution, result persistence, and graceful shutdown.
 

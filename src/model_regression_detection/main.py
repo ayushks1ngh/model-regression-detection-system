@@ -9,9 +9,14 @@ from fastapi import FastAPI
 from model_regression_detection import __version__
 from model_regression_detection.api.middleware import RequestContextMiddleware
 from model_regression_detection.api.routes import router as health_router
+from model_regression_detection.api.runs import router as runs_router
 from model_regression_detection.config import Settings, get_settings
 from model_regression_detection.logging import configure_logging
-from model_regression_detection.persistence.engine import create_engine, dispose_engine
+from model_regression_detection.persistence.engine import (
+    create_engine,
+    create_session_factory,
+    dispose_engine,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +34,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             else None
         )
         application.state.db_engine = engine
+        application.state.db_session_factory = (
+            create_session_factory(engine) if engine is not None else None
+        )
         logger.info(
             "application_started",
             extra={
@@ -56,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         header_name=resolved_settings.request_id_header,
     )
     application.include_router(health_router)
+    application.include_router(runs_router)
     return application
 
 

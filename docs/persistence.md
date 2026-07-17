@@ -14,11 +14,12 @@ export MRDS_DATABASE_URL="postgresql+asyncpg://user:password@host:5432/mrds"
 
 ## Schema
 
-The initial migration creates three tables:
+The schema (across `0001_initial` and `0002_run_lifecycle`) creates four tables:
 
 - `projects`: logical owner of runs.
-- `runs`: immutable run identity, hashes, execution status, gate outcome, aggregate metrics.
+- `runs`: immutable snapshot, lifecycle `state` (`created`/`completed`/`failed`), and — once completed — execution status, gate outcome, and aggregate metrics.
 - `case_results`: per-case outcome, provider status, cost, and full evidence JSON, unique per `(run_id, case_key)`.
+- `idempotency_records`: project-scoped idempotency key to run ID mapping, unique per `(project_id, idempotency_key)`.
 
 JSON columns use PostgreSQL `JSONB` and portable `JSON` elsewhere so the same models run under SQLite in tests.
 

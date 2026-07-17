@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 9 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health and readiness checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, per-run execution limits, and optional PostgreSQL persistence with migrations. Run submission APIs, workers, HTML reports, and baseline comparison intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 10 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health and readiness checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, per-run execution limits, optional PostgreSQL persistence with migrations, and a run submission/status API with idempotency. Workers, HTML reports, and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 
@@ -41,6 +41,8 @@ Persistence and readiness are optional and activate only when a database URL is 
 export MRDS_DATABASE_URL="postgresql+asyncpg://user:password@localhost:5432/mrds"
 uv run alembic upgrade head
 ```
+
+See [`docs/run-submission-api.md`](docs/run-submission-api.md) for the run submission and status API.
 
 ## Quality checks
 
@@ -96,5 +98,7 @@ Invalid or unknown settings fail at startup. Do not put credentials in these gen
 - `evaluators/`: fixed deterministic assertions and bounded evidence.
 - `policy/`: deterministic aggregation and the fixed local pass/fail/error gate.
 - `reporting/`: versioned, bounded, deterministic local JSON report.
+- `persistence/`: async PostgreSQL schema, migrations, and the run repository.
+- `api/`: run submission and status routes alongside health/readiness.
 
 See [`docs/milestones.md`](docs/milestones.md) for the implementation source of truth, [`docs/evaluation-specification.md`](docs/evaluation-specification.md) for the M2 contract, [`docs/local-runner.md`](docs/local-runner.md) for M3, [`docs/evaluators.md`](docs/evaluators.md) for M4, [`docs/policy.md`](docs/policy.md) for M5, [`docs/json-report.md`](docs/json-report.md) for M6, and [`docs/architecture.md`](docs/architecture.md) for the target architecture. Target-state documentation is broader than the implemented milestone scope.

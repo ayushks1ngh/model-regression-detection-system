@@ -4,15 +4,26 @@ from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from model_regression_detection.execution.report import LocalEvaluationReport
-from model_regression_detection.persistence.models import CaseRow, ProjectRow, RunRow
+from model_regression_detection.persistence.models import (
+    CaseRow,
+    IdempotencyRecordRow,
+    ProjectRow,
+    RunRow,
+)
+from model_regression_detection.specification.models import EvaluationSpecification
+
+
+class IdempotencyConflictError(ValueError):
+    """Raised when a reused idempotency key carries a different request body."""
 
 
 class RunRepository:
-    """Persist completed evaluation reports and read them back."""
+    """Persist evaluation runs across their lifecycle and read them back."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -27,22 +38,81 @@ class RunRepository:
         await self._session.flush()
         return project
 
-    async def save_report(self, project_id: str, report: LocalEvaluationReport) -> str:
-        """Persist a completed report and its cases atomically, returning the run ID."""
+    async def find_idempotent_run(
+        self,
+        project_id: str,
+        idempotency_key: str,
+        request_hash: str,
+    ) -> str:
+        """Return the existing run ID for a reused key, or raise on a body mismatch."""
+        result = await self._session.execute(
+            select(IdempotencyRecordRow).where(
+                IdempotencyRecordRow.project_id == project_id,
+                IdempotencyRecordRow.idempotency_key == idempotency_key,
+            )
+        )
+        record = result.scalar_one()
+        if record.request_hash != request_hash:
+            raise IdempotencyConflictError(
+                f"Idempotency key {idempotency_key!r} was used with a different request body"
+            )
+        return record.run_id
+
+    async def create_run(
+        self,
+        project_id: str,
+        specification: EvaluationSpecification,
+        configuration_hash: str,
+        dataset_hash: str,
+        idempotency_key: str | None,
+        request_hash: str | None,
+    ) -> str:
+        """Create an immutable run snapshot in the created state.
+
+        When an idempotency key is supplied and already recorded for this project,
+        the existing run ID is returned instead of creating a duplicate run.
+        """
         run_id = uuid4().hex
-        summaries = {case.case_key: case for case in report.gate.cases}
         run = RunRow(
             id=run_id,
             project_id=project_id,
-            suite=report.run.suite,
-            configuration_hash=report.run.configuration_hash,
-            dataset_hash=report.run.dataset_hash,
-            execution_status=report.run.status,
-            gate_outcome=report.gate.outcome.value,
-            total_cases=report.run.total_cases,
-            metrics=report.gate.metrics.model_dump(mode="json"),
+            suite=specification.suite,
+            configuration_hash=configuration_hash,
+            dataset_hash=dataset_hash,
+            snapshot=specification.model_dump(mode="json"),
+            state="created",
         )
         self._session.add(run)
+        if idempotency_key is not None:
+            self._session.add(
+                IdempotencyRecordRow(
+                    id=uuid4().hex,
+                    project_id=project_id,
+                    idempotency_key=idempotency_key,
+                    request_hash=request_hash or "",
+                    run_id=run_id,
+                )
+            )
+        try:
+            await self._session.flush()
+        except IntegrityError:
+            await self._session.rollback()
+            if idempotency_key is None:
+                raise
+            return await self.find_idempotent_run(project_id, idempotency_key, request_hash or "")
+        return run_id
+
+    async def complete_run(self, run_id: str, report: LocalEvaluationReport) -> None:
+        """Transition a created run to a terminal state with full evidence."""
+        run = await self._session.get(RunRow, run_id)
+        if run is None:
+            raise LookupError(f"Run {run_id!r} does not exist")
+        summaries = {case.case_key: case for case in report.gate.cases}
+        run.execution_status = report.run.status
+        run.gate_outcome = report.gate.outcome.value
+        run.total_cases = report.run.total_cases
+        run.metrics = report.gate.metrics.model_dump(mode="json")
+        run.state = "completed" if report.run.status == "completed" else "failed"
         for case in report.run.cases:
             cost = case.provider_result.cost
             self._session.add(
@@ -58,7 +128,6 @@ class RunRepository:
                 )
             )
         await self._session.flush()
-        return run_id
 
     async def get_run(self, run_id: str) -> RunRow | None:
         """Load a run with its ordered cases, or None when absent."""

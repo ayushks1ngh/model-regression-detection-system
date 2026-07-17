@@ -1,12 +1,13 @@
-"""HTTP response schemas."""
+"""HTTP request and response schemas."""
 
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from model_regression_detection.config import Environment
 from model_regression_detection.domain.versions import TargetKind
+from model_regression_detection.specification.models import EvaluationSpecification
 
 
 class LiveResponse(BaseModel):
@@ -29,3 +30,40 @@ class ReadyResponse(BaseModel):
 
     status: Literal["ready", "not_ready"]
     database: Literal["ok", "unavailable", "not_configured"]
+
+
+class RunCreateCommand(BaseModel):
+    """Request body to submit an immutable evaluation run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    specification: EvaluationSpecification
+
+
+class RunCreateResponse(BaseModel):
+    """Response returned after a run is accepted and its snapshot is frozen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    project_id: str
+    suite: str
+    state: Literal["created"]
+    configuration_hash: str
+    dataset_hash: str
+
+
+class RunStatusResponse(BaseModel):
+    """Current status of a persisted run."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    project_id: str
+    suite: str
+    state: Literal["created", "completed", "failed"]
+    gate_outcome: Literal["pass", "fail", "error"] | None
+    total_cases: int | None
+    created_at: datetime
+    completed_at: datetime | None

@@ -53,7 +53,7 @@ class ProjectRow(Base):
 
 
 class RunRow(Base):
-    """One immutable evaluation run and its gate outcome."""
+    """One evaluation run: an immutable snapshot plus mutable lifecycle state."""
 
     __tablename__ = "runs"
 
@@ -62,11 +62,14 @@ class RunRow(Base):
     suite: Mapped[str] = mapped_column(String(200))
     configuration_hash: Mapped[str] = mapped_column(String(64))
     dataset_hash: Mapped[str] = mapped_column(String(64))
-    execution_status: Mapped[str] = mapped_column(String(32))
-    gate_outcome: Mapped[str] = mapped_column(String(32))
-    total_cases: Mapped[int] = mapped_column(Integer)
-    metrics: Mapped[dict[str, Any]] = mapped_column(PortableJson)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(PortableJson)
+    state: Mapped[str] = mapped_column(String(32))
+    execution_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    gate_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    total_cases: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    metrics: Mapped[dict[str, Any] | None] = mapped_column(PortableJson, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     project: Mapped[ProjectRow] = relationship(back_populates="runs")
     cases: Mapped[list["CaseRow"]] = relationship(
@@ -92,3 +95,19 @@ class CaseRow(Base):
     evidence: Mapped[dict[str, Any]] = mapped_column(PortableJson)
 
     run: Mapped[RunRow] = relationship(back_populates="cases")
+
+
+class IdempotencyRecordRow(Base):
+    """Maps a project-scoped idempotency key to the run it created."""
+
+    __tablename__ = "idempotency_records"
+    __table_args__ = (
+        UniqueConstraint("project_id", "idempotency_key", name="uq_idempotency_project_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
