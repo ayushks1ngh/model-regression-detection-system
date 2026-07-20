@@ -1,0 +1,144 @@
+# Reusable workflow: submit an evaluation spec to MRDS and await the gate
+# decision.  Uses the CLI exit-code contract to produce distinct CI outcomes.
+#
+# Usage:
+#   jobs:
+#     evaluate:
+#       uses: org/repo/.github/workflows/evaluate.yml@v1
+#       with:
+#         spec-path: specs/my-eval.yaml
+#         project-id: my-project
+#         api-url: https://mrds.example.com
+#
+# Exit codes → CI:
+#   0 (pass)    → ✅ green check
+#   1 (regression) → ❌ job fails
+#   2 (error)   → ❌ job fails
+#   3 (timeout) → ❌ job fails
+
+name: MRDS Evaluation
+
+on:
+  workflow_call:
+    inputs:
+      spec-path:
+        required: true
+        type: string
+        description: Path to the evaluation specification file
+      project-id:
+        required: true
+        type: string
+        description: MRDS project ID
+      api-url:
+        required: true
+        type: string
+        description: Base URL of the MRDS API service
+      timeout-seconds:
+        required: false
+        type: number
+        default: 600
+        description: Maximum seconds to wait for run completion
+
+    outputs:
+      run-id:
+        description: Submitted run identifier
+        value: ${{ jobs.evaluate.outputs.run_id }}
+      gate-outcome:
+        description: Gate decision (pass / fail / error)
+        value: ${{ jobs.evaluate.outputs.gate_outcome }}
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    outputs:
+      run_id: ${{ steps.submit.outputs.run_id }}
+      gate_outcome: ${{ steps.summarize.outputs.gate_outcome }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install MRDS
+        run: |
+          pip install --upgrade pip
+          pip install .
+
+      - name: Validate specification
+        run: mrds validate "${{ inputs.spec-path }}"
+
+      - name: Submit evaluation run
+        id: submit
+        run: |
+          RUN_ID=$(mrds submit "${{ inputs.spec-path }}" \
+            --project-id "${{ inputs.project-id }}" \
+            --url "${{ inputs.api-url }}" \
+            --timeout-seconds 30)
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Submitted run $RUN_ID"
+
+      - name: Wait for completion
+        id: wait
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          PAYLOAD=$(mrds wait "${{ steps.submit.outputs.run_id }}" \
+            --url "${{ inputs.api-url }}" \
+            --timeout-seconds "${{ inputs.timeout-seconds }}" \
+            --json)
+          GATE=$(echo "$PAYLOAD" | python3 -c \
+            "import sys,json; print(json.load(sys.stdin).get('gate_outcome','error'))")
+          echo "gate_outcome=$GATE" >> "$GITHUB_OUTPUT"
+
+      - name: Download report artifact
+        if: always()
+        run: |
+          mkdir -p mrds-reports
+          mrds download "${{ steps.submit.outputs.run_id }}" \
+            --output-path mrds-reports/report.json \
+            --url "${{ inputs.api-url }}" || echo "Download skipped"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mrds-report-${{ steps.submit.outputs.run_id }}
+          path: mrds-reports/
+          retention-days: 30
+
+      - name: Summarize and enforce outcome
+        id: summarize
+        if: always()
+        env:
+          GATE: ${{ steps.wait.outputs.gate_outcome }}
+        run: |
+          echo "gate_outcome=${GATE}" >> "$GITHUB_OUTPUT"
+
+          case "${GATE}" in
+            pass)
+              echo "## ✅ MRDS Evaluation Passed" >> "$GITHUB_STEP_SUMMARY"
+              echo "All policy rules satisfied." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            fail)
+              echo "## ❌ MRDS Regression Detected" >> "$GITHUB_STEP_SUMMARY"
+              echo "One or more policy rules were violated." >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            error)
+              echo "## ⚠️ MRDS System / Request Error" >> "$GITHUB_STEP_SUMMARY"
+              echo "Insufficient evidence or infrastructure failure." >> "$GITHUB_STEP_SUMMARY"
+              exit 2
+              ;;
+            *)
+              echo "## ⚪ MRDS Timed Out / Unknown" >> "$GITHUB_STEP_SUMMARY"
+              echo "The run did not complete within the timeout." >> "$GITHUB_STEP_SUMMARY"
+              exit 3
+              ;;
+          esac
