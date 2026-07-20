@@ -25,7 +25,12 @@ Because the `WHERE` clause re-checks the expected prior state, at most one concu
 
 - Claiming sets `state=running`, `worker_id`, and `lease_expires_at` (default 60 seconds, configurable with `--lease-seconds`).
 - Completion checks that the calling worker still owns the lease before writing terminal evidence. A worker whose lease was reclaimed by someone else cannot overwrite the winner's results.
-- There is currently no heartbeat renewal during execution; a run must complete within one lease window. Heartbeat extension and reconciliation sweeps are deferred to a later milestone.
+- Heartbeat renewal runs as a background task during execution, extending the lease every `lease_seconds / 3` seconds (minimum 1s). If the worker loses its lease (another worker reclaimed it), heartbeat logs a warning but does not abort execution; `complete_run` will reject the stale write at the end.
+- Retryable provider errors (rate limits, timeouts, transient upstream failures) are retried with exponential backoff: `base_delay * 2^attempt`, capped at `max_retry_delay_seconds` (default 30s), up to `max_retries` (default 3). Permanent errors are never retried. Configurable via `mrds worker --max-retries`, `--base-retry-delay-seconds`, and `--max-retry-delay-seconds`.
+
+## Startup reconciliation
+
+On startup, the worker calls `reconcile_stranded_runs` to fail any runs stuck in `running` state with an expired lease. Runs that were never claimed (`created`) are left for the poll loop to pick up, unless they exceed `max_created_age_seconds`. Reconciled runs receive `state=failed`, `execution_status=reconciled`, and `gate_outcome=error` with a `metrics.reason` field.
 
 ## Graceful shutdown
 
@@ -55,4 +60,4 @@ The initial implementation added the run row and its idempotency record to the s
 
 ## Deferred
 
-Retry policy, bounded reattempt counts, heartbeat renewal, run cancellation, and startup reconciliation of stranded leases are introduced in later milestones.
+Run cancellation and configurable retry budgets are deferred to later milestones.

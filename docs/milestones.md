@@ -27,8 +27,16 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M9 | COMPLETE | Async PostgreSQL schema, Alembic migrations, run repository, and readiness check |
 | M10 | COMPLETE | Run submission API with immutable snapshot, idempotency, and status retrieval |
 | M11 | COMPLETE | PostgreSQL-backed worker with atomic claim, lease expiry reclaim, and graceful shutdown |
-| M12 | IN PROGRESS | Retries and lease recovery |
-| M13–M24 | NOT STARTED | No implementation work permitted until M12 is complete |
+| M12 | COMPLETE | Retries, heartbeat lease renewal, and provider retry/backoff |
+| M13 | IN PROGRESS | Run finalization and restart recovery |
+| M14 | COMPLETE | Explicit baseline promotion with atomic concurrency control |
+| M15 | COMPLETE | Candidate-versus-baseline comparison with drop-rule evaluation |
+| M16 | COMPLETE | Self-contained safe HTML report with CSP, provenance, deltas, and case diffs |
+| M17 | COMPLETE | CLI submit/status/wait/download with distinct exit codes for CI |
+| M18 | COMPLETE | Reusable GitHub Actions workflow with summaries, artifacts, and distinct failure modes |
+| M19 | COMPLETE | Bounded, retryable Slack notification with decision summary |
+| M20 | COMPLETE | Idempotent cancellation, cancellation token, worker detection, partial evidence |
+| M21–M24 | NOT STARTED | No implementation work permitted until M20 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -85,14 +93,6 @@ Aggregate pass/error/critical-case/usage metrics and implement fixed pass/fail/e
 **Acceptance:** Quality failures, execution errors, and passes are distinct; threshold boundaries and deterministic replay pass tests.
 
 **Evidence:** 72 tests passed at 94.18% coverage. Ruff, strict mypy, deterministic gate replay, run/gate smoke assertions, and package builds passed. Baseline-relative rules are `not_applicable` until M15. A circular import between runner and policy was resolved by separating `execution/models.py` evidence from `execution/report.py` orchestration.
-
-## M6 — Local JSON report
-
-**Status:** IN PROGRESS
-
-Aggregate pass/error/critical-case/usage metrics and implement fixed pass/fail/error policy semantics.
-
-**Acceptance:** Quality failures, execution errors, and passes are distinct; threshold boundaries and deterministic replay pass tests.
 
 ## M6 — Local JSON report
 
@@ -158,25 +158,31 @@ Add leased asynchronous job claiming, provider execution, result persistence, an
 
 ## M12 — Retries and lease recovery
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
-Add bounded retry/backoff, heartbeat, lease reclamation, and stale-owner protection.
+**Scope:** Bounded retry/backoff via RetryProvider wrapper, worker heartbeat renewal during execution, expontential-backoff retry for transient provider errors, background heartbeat loop that extends the lease every `lease_seconds / 3` seconds, and stale-owner protection enforced by `complete_run` worker-id matching.
+
+**Tests:** RetryProvider retries on retryable errors, stops on permanent errors, stops after max_retries exhausted, immediate success without retries. Heartbeat extends lease during execution. Run with retryable provider succeeds end-to-end. Template render errors produce errored cases instead of crashing. CLI worker precondition validation tests.
 
 **Acceptance:** Retryable/permanent behavior and crash recovery pass without overwriting selected evidence.
 
 ## M13 — Run finalization and restart recovery
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
-Persist aggregates/decisions, finalize states, and reconcile stranded runs.
+**Scope:** Startup reconciliation of stranded runs (running with expired leases, or stale created runs), idempotent reconcile method on RunRepository, and worker startup sweep.
+
+**Tests:** Stranded running runs are failed with correct metadata; active leases are skipped; reconcile is idempotent; stale created runs can be optionally failed; worker reconciles on startup.
 
 **Acceptance:** Case accounting is exact; finalization is idempotent; restarts do not strand recoverable runs.
 
 ## M14 — Explicit baseline promotion
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
-Add named revisioned baselines, promotion reasons, eligibility, concurrency control, and frozen resolution.
+**Scope:** Database table `baseline_channels` (migration 0004) with project-scoped unique channels, ORM model, repository methods (`promote_run`, `get_baseline`, `list_baselines`), REST API (`POST/GET /api/v1/projects/{id}/baselines/{channel}`, `GET /api/v1/projects/{id}/baselines`). Atomic promotion via conditional UPDATE; eligible runs must be `completed` with `gate_outcome=pass`; frozen resolution via immutable channel records.
+
+**Tests:** 5 repository tests (create, ineligible rejection, update existing, idempotent same-run, project-scoped list) + 5 API tests (promote+get, missing run_id, unknown baseline 404, list, 503 without DB).
 
 **Acceptance:** Exactly one concurrent promotion wins; ineligible/cross-project promotion fails; existing runs never move baselines.
 
@@ -222,7 +228,7 @@ Send redacted, bounded, retryable terminal-run messages with decision summary an
 
 ## M20 — Cancellation and operational controls
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 Add idempotent cancellation, deadlines, late-result handling, and stale-run reconciliation.
 

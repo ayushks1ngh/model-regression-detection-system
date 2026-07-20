@@ -14,7 +14,7 @@ export MRDS_DATABASE_URL="postgresql+asyncpg://user:password@host:5432/mrds"
 
 ## Schema
 
-The schema (across `0001_initial`, `0002_run_lifecycle`, and `0003_worker_lease`) creates four tables:
+The schema (across `0001_initial` and `0002_run_lifecycle` — `0003_worker_lease` was added in M11) creates four tables:
 
 - `projects`: logical owner of runs.
 - `runs`: immutable snapshot, lifecycle `state` (`created`/`running`/`completed`/`failed`), worker lease (`worker_id`, `lease_expires_at`), and — once completed — execution status, gate outcome, and aggregate metrics.

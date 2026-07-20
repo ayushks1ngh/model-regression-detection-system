@@ -2,7 +2,7 @@
 
 Production foundation for an AI evaluation and regression-gating service. The product is designed to compare immutable **prompt versions**, **model versions**, and **agent versions** against approved baselines.
 
-This repository currently implements **Milestones 1 through 11 only**: a runnable API/CLI skeleton, typed configuration, structured logging, health and readiness checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, per-run execution limits, optional PostgreSQL persistence with migrations, a run submission/status API with idempotency, and a PostgreSQL-backed worker. HTML reports and baseline comparison intentionally remain unimplemented.
+This repository currently implements **Milestones 1 through 14**: a runnable API/CLI skeleton, typed configuration, structured logging, health and readiness checks, a strict versioned evaluation-specification contract, canonical hashes, a deterministic sequential fake-provider runner, six built-in deterministic evaluators, local aggregation with a fixed pass/fail/error gate, a versioned local JSON report, an OpenRouter provider adapter, per-run execution limits, optional PostgreSQL persistence with migrations, a run submission/status API with idempotency, and a PostgreSQL-backed worker. HTML reports and baseline comparison intentionally remain unimplemented.
 
 ## Requirements
 
@@ -101,6 +101,6 @@ Invalid or unknown settings fail at startup. Do not put credentials in these gen
 - `persistence/`: async PostgreSQL schema, migrations, and the run repository.
 - `api/`: run submission and status routes alongside health/readiness.
 
-- `workers/`: durable worker that claims, executes, and finalizes persisted runs.
+- `workers/`: durable worker with retry/backoff and heartbeat lease renewal.
 
 See [`docs/milestones.md`](docs/milestones.md) for the implementation source of truth, [`docs/evaluation-specification.md`](docs/evaluation-specification.md) for the M2 contract, [`docs/local-runner.md`](docs/local-runner.md) for M3, [`docs/evaluators.md`](docs/evaluators.md) for M4, [`docs/policy.md`](docs/policy.md) for M5, [`docs/json-report.md`](docs/json-report.md) for M6, [`docs/run-submission-api.md`](docs/run-submission-api.md) for M10, [`docs/worker.md`](docs/worker.md) for M11, and [`docs/architecture.md`](docs/architecture.md) for the target architecture. Target-state documentation is broader than the implemented milestone scope.
