@@ -103,15 +103,20 @@ async def test_non_string_inputs_render_as_canonical_json() -> None:
 
 
 @pytest.mark.anyio
-async def test_unsafe_template_expression_is_rejected() -> None:
+async def test_unsafe_template_expression_produces_errored_case() -> None:
     document = valid_document()
     document["prompt"]["messages"][0]["content"] = "{request.__class__}"
 
-    with pytest.raises(ValueError, match="Unsupported prompt field expression"):
-        await execute_local(
-            specification(document),
-            FakeProvider({"refund": FakeResponse(output="should not execute")}),
-        )
+    result = await execute_local(
+        specification(document),
+        FakeProvider({"refund": FakeResponse(output="should not execute")}),
+    )
+
+    assert result.status == "completed"
+    assert result.successful_cases == 0
+    assert result.error_cases == 1
+    assert result.cases[0].provider_result.error is not None
+    assert "template_render_error" in result.cases[0].provider_result.error.code
 
 
 def test_fake_fixture_example_is_valid() -> None:
@@ -119,3 +124,17 @@ def test_fake_fixture_example_is_valid() -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
 
     assert set(payload["responses"]) == {"refund-policy", "greeting"}
+
+
+def test_fake_fixture_with_cost(tmp_path: Path) -> None:
+    from model_regression_detection.providers.fixtures import load_fake_responses
+
+    fixture = tmp_path / "with_cost.json"
+    fixture.write_text(
+        '{"responses":{"test":{"output":"ok","cost":0.05,"input_tokens":10,"output_tokens":5,"latency_ms":1.0}}}',
+        encoding="utf-8",
+    )
+    responses = load_fake_responses(fixture)
+
+    assert responses["test"].cost == 0.05
+    assert responses["test"].output == "ok"

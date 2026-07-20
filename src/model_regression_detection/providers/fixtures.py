@@ -19,6 +19,7 @@ class FakeResponseDocument(BaseModel):
     input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     latency_ms: float = Field(default=0.0, ge=0.0)
+    cost: float | None = None
 
     @model_validator(mode="after")
     def validate_outcome(self) -> "FakeResponseDocument":
@@ -47,6 +48,7 @@ def load_fake_responses(path: Path) -> dict[str, FakeResponse]:
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
             latency_ms=response.latency_ms,
+            cost=response.cost,
         )
         for case_key, response in document.responses.items()
     }
