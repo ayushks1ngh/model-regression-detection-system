@@ -4,8 +4,10 @@ import json
 import logging
 import string
 from hashlib import sha256
+from typing import Literal
 
 from model_regression_detection.evaluators import evaluate_case
+from model_regression_detection.execution.cancellation import CancellationToken
 from model_regression_detection.execution.limits import effective_output_tokens, preflight_check
 from model_regression_detection.execution.models import CaseExecutionResult, LocalRunResult
 from model_regression_detection.providers.contracts import (
@@ -75,16 +77,53 @@ def _request_hash(request: InferenceRequest) -> str:
 async def execute_local(
     specification: EvaluationSpecification,
     provider: Provider,
+    cancellation_token: CancellationToken | None = None,
 ) -> LocalRunResult:
-    """Execute every golden case sequentially and preserve all terminal results."""
+    """Execute every golden case sequentially and preserve all terminal results.
+
+    When ``cancellation_token`` is provided and cancellation is requested
+    between cases, execution stops and returns partial results with a
+    ``cancelled`` status.
+    """
     preflight_check(specification)
     hashes = specification_hashes(specification)
     results: list[CaseExecutionResult] = []
     evaluator_definitions = {evaluator.name: evaluator for evaluator in specification.evaluators}
     max_total_cost = specification.limits.max_total_cost
     accumulated_cost = 0.0
+    cancelled = False
     for ordinal, case in enumerate(specification.cases):
-        request = _build_request(specification, case)
+        if cancellation_token is not None and cancellation_token.cancelled:
+            cancelled = True
+            break
+
+        try:
+            request = _build_request(specification, case)
+        except ValueError as exc:
+            logger.warning(
+                "local_case_render_failed",
+                extra={"suite": specification.suite, "case_key": case.key, "error": str(exc)},
+            )
+            provider_result = InferenceResult(
+                status="error",
+                latency_ms=0.0,
+                error=ProviderError(
+                    category=ErrorCategory.INVALID_REQUEST,
+                    code="template_render_error",
+                    message=str(exc),
+                    retryable=False,
+                ),
+            )
+            results.append(
+                CaseExecutionResult(
+                    case_key=case.key,
+                    ordinal=ordinal,
+                    request_hash="0" * 64,
+                    provider_result=provider_result,
+                    evaluations=evaluate_case(case, None, evaluator_definitions),
+                )
+            )
+            continue
         if max_total_cost is not None and accumulated_cost >= max_total_cost:
             logger.info(
                 "local_case_skipped_budget",
@@ -127,8 +166,9 @@ async def execute_local(
         )
 
     successful_cases = sum(result.provider_result.status == "success" for result in results)
+    status: Literal["completed", "cancelled"] = "cancelled" if cancelled else "completed"
     return LocalRunResult(
-        status="completed",
+        status=status,
         suite=specification.suite,
         configuration_hash=hashes.configuration,
         dataset_hash=hashes.dataset,

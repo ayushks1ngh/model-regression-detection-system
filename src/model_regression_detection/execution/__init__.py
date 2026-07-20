@@ -1,5 +1,6 @@
 """Sequential execution and local fixed-policy composition."""
 
+from model_regression_detection.execution.cancellation import CancellationToken
 from model_regression_detection.execution.limits import LimitExceededError
 from model_regression_detection.execution.models import CaseExecutionResult, LocalRunResult
 from model_regression_detection.execution.report import (
@@ -9,6 +10,7 @@ from model_regression_detection.execution.report import (
 from model_regression_detection.execution.runner import execute_local
 
 __all__ = [
+    "CancellationToken",
     "CaseExecutionResult",
     "LimitExceededError",
     "LocalEvaluationReport",

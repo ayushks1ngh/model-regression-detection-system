@@ -1,7 +1,7 @@
 """HTTP request and response schemas."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -62,8 +62,48 @@ class RunStatusResponse(BaseModel):
     run_id: str
     project_id: str
     suite: str
-    state: Literal["created", "completed", "failed"]
+    state: Literal["created", "completed", "failed", "cancelling", "cancelled"]
     gate_outcome: Literal["pass", "fail", "error"] | None
     total_cases: int | None
+    created_at: datetime
+    completed_at: datetime | None
+
+
+class CancelRunResponse(BaseModel):
+    """Response after a cancellation request is processed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    state: Literal["cancelling", "cancelled"]
+    already_cancelled: bool
+
+
+class CaseEvidenceResponse(BaseModel):
+    """Minimal case-level evidence for the full run report."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_key: str
+    ordinal: Annotated[int, Field(ge=0)]
+    outcome: str
+    provider_status: str
+    cost: float | None
+    evidence: dict[str, Any]
+
+
+class RunReportResponse(BaseModel):
+    """Full run report including case-level evidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: str
+    project_id: str
+    suite: str
+    state: Literal["created", "completed", "failed", "cancelling", "cancelled"]
+    gate_outcome: Literal["pass", "fail", "error"] | None
+    total_cases: int | None
+    metrics: dict[str, Any] | None
+    cases: tuple[CaseEvidenceResponse, ...]
     created_at: datetime
     completed_at: datetime | None

@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from model_regression_detection.execution.report import LocalEvaluationReport
 from model_regression_detection.persistence.models import (
+    BaselineChannelRow,
     CaseRow,
     IdempotencyRecordRow,
     ProjectRow,
@@ -179,6 +180,155 @@ class RunRepository:
                 return run_id
         return None
 
+    async def reconcile_stranded_runs(
+        self,
+        lease_grace_seconds: int = 30,
+        max_created_age_seconds: int | None = None,
+    ) -> int:
+        """Reconcile stranded runs and return the count reconciled.
+
+        The following are reconciled:
+        - ``running`` with expired lease → ``failed``
+        - ``cancelling`` with expired lease → ``cancelled``
+        - ``created`` older than ``max_created_age_seconds`` → ``failed``
+        """
+        now = datetime.now(UTC)
+        cutoff = now - timedelta(seconds=lease_grace_seconds)
+        result = await self._session.execute(
+            update(RunRow)
+            .where(
+                RunRow.state == "running",
+                RunRow.lease_expires_at < cutoff,
+            )
+            .values(
+                state="failed",
+                execution_status="reconciled",
+                gate_outcome="error",
+                completed_at=now,
+                metrics={
+                    "reconciled": True,
+                    "reconciled_at": now.isoformat(),
+                    "reason": "lease_expired",
+                },
+            )
+        )
+        reconciled = result.rowcount
+
+        result = await self._session.execute(
+            update(RunRow)
+            .where(
+                RunRow.state == "cancelling",
+                RunRow.lease_expires_at < cutoff,
+            )
+            .values(
+                state="cancelled",
+                completed_at=now,
+                metrics={
+                    "reconciled": True,
+                    "reconciled_at": now.isoformat(),
+                    "reason": "cancelled_lease_expired",
+                },
+            )
+        )
+        reconciled += result.rowcount
+
+        if max_created_age_seconds is not None:
+            stale_cutoff = now - timedelta(seconds=max_created_age_seconds)
+            result = await self._session.execute(
+                update(RunRow)
+                .where(
+                    RunRow.state == "created",
+                    RunRow.created_at < stale_cutoff,
+                )
+                .values(
+                    state="failed",
+                    execution_status="reconciled",
+                    gate_outcome="error",
+                    completed_at=now,
+                    metrics={
+                        "reconciled": True,
+                        "reconciled_at": now.isoformat(),
+                        "reason": "stale_created",
+                    },
+                )
+            )
+            reconciled += result.rowcount
+
+        await self._session.flush()
+        return reconciled
+
+    async def cancel_run(self, run_id: str) -> bool:
+        """Request idempotent cancellation for a non-terminal run.
+
+        - ``created`` runs are immediately moved to ``cancelled``.
+        - ``running`` runs are moved to ``cancelling`` so the worker
+          detects the signal at the next heartbeat or case boundary.
+        - ``cancelling`` / ``cancelled`` runs are idempotent (returns True).
+        - ``completed`` / ``failed`` runs cannot be cancelled (returns False).
+        """
+        run = await self._session.get(RunRow, run_id)
+        if run is None:
+            raise LookupError(f"Run {run_id!r} does not exist")
+
+        if run.state in ("cancelling", "cancelled"):
+            return True
+        if run.state == "created":
+            run.state = "cancelled"
+            run.completed_at = datetime.now(UTC)
+            await self._session.flush()
+            return True
+        if run.state == "running":
+            run.state = "cancelling"
+            await self._session.flush()
+            return True
+        return False
+
+    async def acknowledge_cancellation(
+        self,
+        run_id: str,
+        worker_id: str,
+        report: LocalEvaluationReport | None = None,
+    ) -> bool:
+        """Acknowledge cancellation and transition from ``cancelling`` to ``cancelled``.
+
+        Only succeeds when this worker still holds the lease. When ``report``
+        is provided, partial evidence is persisted before the terminal transition.
+        Returns False if this worker no longer owns the run.
+        """
+        run = await self._session.get(RunRow, run_id)
+        if run is None:
+            raise LookupError(f"Run {run_id!r} does not exist")
+        if run.state != "cancelling":
+            return False
+        if worker_id is not None and run.worker_id != worker_id:
+            return False
+
+        if report is not None:
+            summaries = {case.case_key: case for case in report.gate.cases}
+            run.execution_status = report.run.status
+            run.gate_outcome = report.gate.outcome.value
+            run.total_cases = report.run.total_cases
+            run.metrics = report.gate.metrics.model_dump(mode="json")
+            for case in report.run.cases:
+                cost = case.provider_result.cost
+                self._session.add(
+                    CaseRow(
+                        id=uuid4().hex,
+                        run_id=run_id,
+                        case_key=case.case_key,
+                        ordinal=case.ordinal,
+                        outcome=summaries[case.case_key].outcome.value,
+                        provider_status=case.provider_result.status,
+                        cost=Decimal(str(cost)) if cost is not None else None,
+                        evidence=case.model_dump(mode="json"),
+                    )
+                )
+
+        run.state = "cancelled"
+        run.completed_at = datetime.now(UTC)
+        await self._session.flush()
+        return True
+
     async def heartbeat(self, run_id: str, worker_id: str, lease_seconds: int) -> bool:
         """Extend a run's lease; return False if this worker no longer owns it."""
         lease_expires_at = datetime.now(UTC) + timedelta(seconds=lease_seconds)
@@ -196,6 +346,90 @@ class RunRepository:
             select(RunRow).where(RunRow.id == run_id).options(selectinload(RunRow.cases))
         )
         return result.scalar_one_or_none()
+
+    async def promote_run(
+        self,
+        project_id: str,
+        channel: str,
+        run_id: str,
+        reason: str | None = None,
+    ) -> tuple[bool, BaselineChannelRow] | None:
+        """Atomically promote a completed passing run to a baseline channel.
+
+        Returns ``(created, record)`` where *created* is True when a new
+        channel entry was inserted and False when an existing entry was
+        updated. Returns None when the run is ineligible (not completed or
+        did not pass).
+        """
+        run = await self._session.get(RunRow, run_id)
+        if run is None or run.state != "completed" or run.gate_outcome != "pass":
+            return None
+
+        existing = await self._session.execute(
+            select(BaselineChannelRow).where(
+                BaselineChannelRow.project_id == project_id,
+                BaselineChannelRow.channel == channel,
+            )
+        )
+        existing_row = existing.scalar_one_or_none()
+
+        if existing_row is None:
+            row = BaselineChannelRow(
+                id=uuid4().hex,
+                project_id=project_id,
+                channel=channel,
+                run_id=run_id,
+                reason=reason,
+            )
+            self._session.add(row)
+            await self._session.flush()
+            return True, row
+
+        previous_run_id = existing_row.run_id
+        if previous_run_id == run_id:
+            return True, existing_row
+
+        result = await self._session.execute(
+            update(BaselineChannelRow)
+            .where(
+                BaselineChannelRow.project_id == project_id,
+                BaselineChannelRow.channel == channel,
+                BaselineChannelRow.run_id == previous_run_id,
+            )
+            .values(
+                run_id=run_id,
+                reason=reason,
+                previous_run_id=previous_run_id,
+            )
+        )
+        await self._session.flush()
+        if result.rowcount == 0:
+            return None
+        existing_row.run_id = run_id
+        existing_row.reason = reason
+        existing_row.previous_run_id = previous_run_id
+        return False, existing_row
+
+    async def get_baseline(
+        self, project_id: str, channel: str
+    ) -> BaselineChannelRow | None:
+        """Return the baseline record for a channel, or None."""
+        result = await self._session.execute(
+            select(BaselineChannelRow).where(
+                BaselineChannelRow.project_id == project_id,
+                BaselineChannelRow.channel == channel,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_baselines(self, project_id: str) -> list[BaselineChannelRow]:
+        """List all baseline channels for a project."""
+        result = await self._session.execute(
+            select(BaselineChannelRow)
+            .where(BaselineChannelRow.project_id == project_id)
+            .order_by(BaselineChannelRow.channel)
+        )
+        return list(result.scalars().all())
 
     async def list_runs(self, project_id: str) -> list[RunRow]:
         """List runs for a project, most recent first."""

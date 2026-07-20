@@ -27,11 +27,11 @@ class CaseExecutionResult(ExecutionModel):
 class LocalRunResult(ExecutionModel):
     """Complete sequential local execution evidence in deterministic case order."""
 
-    status: Literal["completed"]
+    status: Literal["completed", "cancelled"]
     suite: str
     configuration_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
     dataset_hash: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
-    total_cases: Annotated[int, Field(ge=1)]
+    total_cases: Annotated[int, Field(ge=0)]
     successful_cases: Annotated[int, Field(ge=0)]
     error_cases: Annotated[int, Field(ge=0)]
     cases: tuple[CaseExecutionResult, ...]
