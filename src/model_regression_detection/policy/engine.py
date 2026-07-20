@@ -1,8 +1,11 @@
 """Pure aggregation and fixed-policy decision engine."""
 
+from typing import Literal
+
 from model_regression_detection.evaluators import EvaluationStatus
 from model_regression_detection.execution.models import LocalRunResult
 from model_regression_detection.policy.models import (
+    BaselineComparison,
     CaseOutcome,
     CaseSummary,
     GateDecision,
@@ -95,8 +98,14 @@ def _rules(
     specification: EvaluationSpecification,
     metrics: RunMetrics,
     cases: tuple[CaseSummary, ...],
+    baseline: BaselineComparison | None = None,
 ) -> tuple[RuleDecision, ...]:
-    """Evaluate fixed rules in stable precedence order."""
+    """Evaluate fixed rules in stable precedence order.
+
+    When *baseline* is provided the three baseline-drop rules are
+    evaluated against observed deltas; otherwise they report
+    NOT_APPLICABLE.
+    """
     policy = specification.policy
     decisions: list[RuleDecision] = []
 
@@ -173,8 +182,19 @@ def _rules(
         )
     )
 
-    decisions.extend(
-        (
+    decisions.extend(_baseline_drop_rules(specification, baseline))
+    return tuple(decisions)
+
+
+def _baseline_drop_rules(
+    specification: EvaluationSpecification,
+    baseline: BaselineComparison | None,
+) -> list[RuleDecision]:
+    """Evaluate the three baseline-drop rules or mark them NOT_APPLICABLE."""
+    policy = specification.policy
+
+    if baseline is None:
+        return [
             RuleDecision(
                 rule_id="maximum_pass_rate_drop",
                 status=RuleStatus.NOT_APPLICABLE,
@@ -199,9 +219,130 @@ def _rules(
                 unit="percent",
                 explanation="Cost and baseline comparison are not available in M5",
             ),
+        ]
+
+    affected = baseline.missing_in_candidate + baseline.missing_in_baseline
+
+    if not baseline.configuration_match or not baseline.dataset_match:
+        incompatible_msg = _incompatible_reason(baseline)
+        return [
+            RuleDecision(
+                rule_id="maximum_pass_rate_drop",
+                status=RuleStatus.INSUFFICIENT_EVIDENCE,
+                observed=baseline.pass_rate_drop,
+                threshold=policy.maximum_pass_rate_drop,
+                unit="ratio",
+                explanation=incompatible_msg,
+                affected_cases=affected,
+            ),
+            RuleDecision(
+                rule_id="maximum_latency_increase_percent",
+                status=RuleStatus.INSUFFICIENT_EVIDENCE,
+                observed=baseline.latency_increase_pct,
+                threshold=policy.maximum_latency_increase_percent,
+                unit="percent",
+                explanation=incompatible_msg,
+                affected_cases=affected,
+            ),
+            RuleDecision(
+                rule_id="maximum_cost_increase_percent",
+                status=RuleStatus.INSUFFICIENT_EVIDENCE,
+                observed=baseline.cost_increase_pct,
+                threshold=policy.maximum_cost_increase_percent,
+                unit="percent",
+                explanation=incompatible_msg,
+                affected_cases=affected,
+            ),
+        ]
+
+    def _eval_drop_rule(
+        rule_id: str,
+        threshold: float | None,
+        observed: float | None,
+        unit: Literal["ratio", "percent"],
+        passed_text: str,
+        failed_text: str,
+        no_obs_text: str,
+        no_thresh_text: str,
+    ) -> RuleDecision:
+        if threshold is None:
+            return RuleDecision(
+                rule_id=rule_id,
+                status=RuleStatus.NOT_APPLICABLE,
+                observed=observed,
+                threshold=None,
+                unit=unit,
+                explanation=no_thresh_text,
+            )
+        if observed is None:
+            return RuleDecision(
+                rule_id=rule_id,
+                status=RuleStatus.INSUFFICIENT_EVIDENCE,
+                observed=None,
+                threshold=threshold,
+                unit=unit,
+                explanation=no_obs_text,
+            )
+        ok = observed <= threshold
+        return RuleDecision(
+            rule_id=rule_id,
+            status=RuleStatus.PASSED if ok else RuleStatus.VIOLATED,
+            observed=observed,
+            threshold=threshold,
+            unit=unit,
+            explanation=passed_text if ok else failed_text,
         )
-    )
-    return tuple(decisions)
+
+    return [
+        _eval_drop_rule(
+            rule_id="maximum_pass_rate_drop",
+            threshold=policy.maximum_pass_rate_drop,
+            observed=baseline.pass_rate_drop,
+            unit="ratio",
+            passed_text="Pass rate drop is within the allowed maximum",
+            failed_text="Pass rate drop exceeds the allowed maximum",
+            no_obs_text="Pass rate drop cannot be computed",
+            no_thresh_text="No maximum_pass_rate_drop policy configured",
+        ),
+        _eval_drop_rule(
+            rule_id="maximum_latency_increase_percent",
+            threshold=policy.maximum_latency_increase_percent,
+            observed=baseline.latency_increase_pct,
+            unit="percent",
+            passed_text="Latency increase is within the allowed maximum",
+            failed_text="Latency increase exceeds the allowed maximum",
+            no_obs_text="Latency increase cannot be computed",
+            no_thresh_text="No maximum_latency_increase_percent policy configured",
+        ),
+        _eval_drop_rule(
+            rule_id="maximum_cost_increase_percent",
+            threshold=policy.maximum_cost_increase_percent,
+            observed=baseline.cost_increase_pct,
+            unit="percent",
+            passed_text="Cost increase is within the allowed maximum",
+            failed_text="Cost increase exceeds the allowed maximum",
+            no_obs_text="Cost increase cannot be computed",
+            no_thresh_text="No maximum_cost_increase_percent policy configured",
+        ),
+    ]
+
+
+def _incompatible_reason(baseline: BaselineComparison) -> str:
+    """Build a human-readable incompatibility explanation."""
+    reasons: list[str] = []
+    if not baseline.configuration_match:
+        reasons.append("configuration hash mismatch between baseline and candidate")
+    if not baseline.dataset_match:
+        reasons.append("dataset hash mismatch between baseline and candidate")
+    if baseline.missing_in_candidate:
+        reasons.append(
+            f"cases present in baseline but missing in candidate: {baseline.missing_in_candidate}"
+        )
+    if baseline.missing_in_baseline:
+        reasons.append(
+            f"cases present in candidate but missing in baseline: {baseline.missing_in_baseline}"
+        )
+    return "Baseline comparison unavailable: " + "; ".join(reasons)
 
 
 def aggregate_and_decide(
@@ -212,6 +353,32 @@ def aggregate_and_decide(
     cases = _case_summaries(specification, run)
     metrics = _metrics(run, cases)
     rules = _rules(specification, metrics, cases)
+    statuses = {rule.status for rule in rules}
+    if RuleStatus.INSUFFICIENT_EVIDENCE in statuses:
+        outcome = GateOutcome.ERROR
+    elif RuleStatus.VIOLATED in statuses:
+        outcome = GateOutcome.FAIL
+    else:
+        outcome = GateOutcome.PASS
+    return GateDecision(outcome=outcome, metrics=metrics, cases=cases, rules=rules)
+
+
+def compare_and_decide(
+    specification: EvaluationSpecification,
+    candidate_run: LocalRunResult,
+    baseline_run: LocalRunResult,
+) -> GateDecision:
+    """Gate decision that includes baseline-drop rule evaluation."""
+    from model_regression_detection.policy.comparison import (
+        compare_candidate_to_baseline,
+    )
+
+    baseline = compare_candidate_to_baseline(
+        candidate_run, baseline_run, specification
+    )
+    cases = _case_summaries(specification, candidate_run)
+    metrics = _metrics(candidate_run, cases)
+    rules = _rules(specification, metrics, cases, baseline=baseline)
     statuses = {rule.status for rule in rules}
     if RuleStatus.INSUFFICIENT_EVIDENCE in statuses:
         outcome = GateOutcome.ERROR

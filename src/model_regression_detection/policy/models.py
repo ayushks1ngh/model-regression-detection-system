@@ -88,6 +88,27 @@ class RuleDecision(PolicyModel):
     affected_cases: tuple[str, ...] = ()
 
 
+class BaselineComparison(PolicyModel):
+    """Deterministic deltas between a baseline run and a candidate run."""
+
+    configuration_match: bool
+    dataset_match: bool
+    total_cases_candidate: Annotated[int, Field(ge=0)]
+    total_cases_baseline: Annotated[int, Field(ge=0)]
+    matching_case_keys: tuple[str, ...]
+    missing_in_candidate: tuple[str, ...]
+    missing_in_baseline: tuple[str, ...]
+    pass_rate_baseline: float | None = None
+    pass_rate_candidate: float | None = None
+    pass_rate_drop: Annotated[float | None, Field(ge=0.0, le=1.0)] = None
+    latency_ms_baseline: float
+    latency_ms_candidate: float
+    latency_increase_pct: Annotated[float, Field(ge=0.0)]
+    cost_baseline: float | None = None
+    cost_candidate: float | None = None
+    cost_increase_pct: Annotated[float | None, Field(ge=0.0)] = None
+
+
 class GateDecision(PolicyModel):
     """Final local gate decision with deterministic rule order and evidence."""
 
