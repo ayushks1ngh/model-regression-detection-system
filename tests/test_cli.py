@@ -8,6 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from model_regression_detection.cli import app
+from model_regression_detection.config import get_settings
 
 runner = CliRunner()
 
@@ -162,3 +163,42 @@ def test_run_local_command_writes_versioned_report(tmp_path: Path) -> None:
     assert payload["gate_outcome"] == "error"
     assert payload["provenance"]["suite"] == "customer-support-smoke"
     assert [case["case_key"] for case in payload["cases"]] == ["refund-policy", "greeting"]
+
+
+# --- CLI worker command tests ---
+
+
+def test_worker_command_requires_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    get_settings.cache_clear()
+    monkeypatch.delenv("MRDS_DATABASE_URL", raising=False)
+    result = runner.invoke(app, ["worker"])
+
+    assert result.exit_code == 2
+    assert "MRDS_DATABASE_URL" in result.stderr
+
+
+def test_worker_command_requires_api_key_or_fake_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("MRDS_DATABASE_URL", "sqlite+aiosqlite:///test.db")
+    monkeypatch.delenv("MRDS_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("MRDS_WORKER_FAKE_PROVIDER", raising=False)
+
+    result = runner.invoke(app, ["worker"])
+
+    assert result.exit_code == 2
+    assert "MRDS_OPENROUTER_API_KEY" in result.stderr
+
+
+def test_worker_command_accepts_fake_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_settings.cache_clear()
+    monkeypatch.setenv("MRDS_DATABASE_URL", "sqlite+aiosqlite:///test.db")
+    monkeypatch.delenv("MRDS_OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("MRDS_WORKER_FAKE_PROVIDER", "1")
+
+    result = runner.invoke(app, ["worker"])
+
+    assert result.exit_code != 2  # precondition passed, runtime failure expected
