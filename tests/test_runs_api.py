@@ -126,6 +126,28 @@ def test_empty_idempotency_key_is_rejected(client: TestClient) -> None:
     assert response.status_code == 400
 
 
+def test_run_report_returns_full_evidence(client: TestClient) -> None:
+    created = submit(client)
+    run_id = created["run_id"]
+
+    response = client.get(f"/api/v1/runs/{run_id}/report")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == run_id
+    assert payload["state"] == "created"
+    assert payload["gate_outcome"] is None
+    assert payload["total_cases"] is None
+    assert payload["metrics"] is None
+    assert isinstance(payload["cases"], list)
+
+
+def test_run_report_returns_404_for_unknown_run(client: TestClient) -> None:
+    response = client.get("/api/v1/runs/does-not-exist/report")
+
+    assert response.status_code == 404
+
+
 def test_runs_api_returns_503_when_persistence_not_configured() -> None:
     settings = Settings(environment=Environment.TEST, log_format="text")
     with TestClient(create_app(settings)) as no_db_client:

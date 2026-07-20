@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from model_regression_detection import __version__
+from model_regression_detection.api.baselines import router as baselines_router
 from model_regression_detection.api.middleware import RequestContextMiddleware
 from model_regression_detection.api.routes import router as health_router
 from model_regression_detection.api.runs import router as runs_router
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.include_router(health_router)
     application.include_router(runs_router)
+    application.include_router(baselines_router)
     return application
 
 
