@@ -101,6 +101,25 @@ class CaseRow(Base):
     run: Mapped[RunRow] = relationship(back_populates="cases")
 
 
+class BaselineChannelRow(Base):
+    """A named baseline channel that points to a specific completed run."""
+
+    __tablename__ = "baseline_channels"
+    __table_args__ = (
+        UniqueConstraint("project_id", "channel", name="uq_baseline_project_channel"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    channel: Mapped[str] = mapped_column(String(200))
+    run_id: Mapped[str] = mapped_column(ForeignKey("runs.id"))
+    reason: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    previous_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    promoted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class IdempotencyRecordRow(Base):
     """Maps a project-scoped idempotency key to the run it created."""
 
