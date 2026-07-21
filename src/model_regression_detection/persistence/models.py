@@ -120,6 +120,20 @@ class BaselineChannelRow(Base):
     )
 
 
+class ProjectTokenRow(Base):
+    """A hashed bearer token scoped to exactly one project."""
+
+    __tablename__ = "project_tokens"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"))
+    token_hash: Mapped[str] = mapped_column(String(256))
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class IdempotencyRecordRow(Base):
     """Maps a project-scoped idempotency key to the run it created."""
 

@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from model_regression_detection.api.auth import optional_project_id
 from model_regression_detection.api.dependencies import get_session
 from model_regression_detection.api.schemas import (
     CancelRunResponse,
@@ -33,6 +34,7 @@ async def create_run(
     command: RunCreateCommand,
     session: Annotated[AsyncSession, Depends(get_session)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
 ) -> RunCreateResponse:
     """Freeze an evaluation specification into an immutable run snapshot."""
     if idempotency_key is not None and (
@@ -42,13 +44,21 @@ async def create_run(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Idempotency-Key must be between 1 and 200 characters",
         )
+    effective_project_id = auth_project_id or command.project_id
+    if auth_project_id is not None and auth_project_id != command.project_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token is scoped to a different project",
+        )
     hashes = specification_hashes(command.specification)
     repository = RunRepository(session)
-    await repository.ensure_project(command.project_id, command.project_id, command.project_id)
+    await repository.ensure_project(
+        effective_project_id, effective_project_id, effective_project_id
+    )
     request_hash = content_hash(command.model_dump(mode="json")) if idempotency_key else None
     try:
         run_id = await repository.create_run(
-            command.project_id,
+            effective_project_id,
             command.specification,
             hashes.configuration,
             hashes.dataset,
@@ -60,7 +70,7 @@ async def create_run(
     await session.commit()
     return RunCreateResponse(
         run_id=run_id,
-        project_id=command.project_id,
+        project_id=effective_project_id,
         suite=command.specification.suite,
         state="created",
         configuration_hash=hashes.configuration,
@@ -76,12 +86,18 @@ async def create_run(
 async def get_run(
     run_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
 ) -> RunStatusResponse:
     """Return the current status of a persisted run."""
     run = await RunRepository(session).get_run(run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    run_state: Literal["created", "completed", "failed"] = run.state  # type: ignore[assignment]
+    if auth_project_id is not None and run.project_id != auth_project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
+    run_state: Literal["created", "completed", "failed", "cancelling", "cancelled"] = run.state  # type: ignore[assignment]
     run_gate_outcome: Literal["pass", "fail", "error"] | None = run.gate_outcome  # type: ignore[assignment]
     return RunStatusResponse(
         run_id=run.id,
@@ -103,12 +119,18 @@ async def get_run(
 async def get_run_report(
     run_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
 ) -> RunReportResponse:
     """Return the full report for a completed run, including case evidence."""
     run = await RunRepository(session).get_run(run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
-    run_state: Literal["created", "completed", "failed"] = run.state  # type: ignore[assignment]
+    if auth_project_id is not None and run.project_id != auth_project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
+    run_state: Literal["created", "completed", "failed", "cancelling", "cancelled"] = run.state  # type: ignore[assignment]
     run_gate_outcome: Literal["pass", "fail", "error"] | None = run.gate_outcome  # type: ignore[assignment]
     cases = tuple(
         CaseEvidenceResponse(
@@ -143,6 +165,7 @@ async def get_run_report(
 async def cancel_run(
     run_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
 ) -> CancelRunResponse:
     """Request cancellation of a non-terminal run.
 
@@ -156,6 +179,11 @@ async def cancel_run(
     run = await repository.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if auth_project_id is not None and run.project_id != auth_project_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Run not found",
+        )
     already_cancelled = run.state in ("cancelling", "cancelled")
     if already_cancelled:
         run_state: Literal["cancelling", "cancelled"] = run.state  # type: ignore[assignment]

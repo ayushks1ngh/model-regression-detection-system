@@ -15,6 +15,7 @@ from model_regression_detection.persistence.models import (
     CaseRow,
     IdempotencyRecordRow,
     ProjectRow,
+    ProjectTokenRow,
     RunRow,
 )
 from model_regression_detection.specification.models import EvaluationSpecification
@@ -439,3 +440,71 @@ class RunRepository:
             .order_by(RunRow.created_at.desc(), RunRow.id.desc())
         )
         return list(result.scalars().all())
+
+    # ── Token management ────────────────────────────────────────────────
+
+    async def create_token(
+        self, project_id: str, name: str, token_hash: str, token_id: str | None = None
+    ) -> str:
+        """Persist a hashed project token and return its row ID."""
+        tid = token_id or uuid4().hex
+        self._session.add(
+            ProjectTokenRow(
+                id=tid,
+                project_id=project_id,
+                token_hash=token_hash,
+                name=name,
+            )
+        )
+        await self._session.flush()
+        return tid
+
+    async def get_token(self, token_id: str) -> ProjectTokenRow | None:
+        """Return the token row, or None."""
+        return await self._session.get(ProjectTokenRow, token_id)
+
+    async def list_tokens(self, project_id: str) -> list[ProjectTokenRow]:
+        """List non-revoked tokens for a project."""
+        result = await self._session.execute(
+            select(ProjectTokenRow)
+            .where(
+                ProjectTokenRow.project_id == project_id,
+                ProjectTokenRow.revoked_at.is_(None),
+            )
+            .order_by(ProjectTokenRow.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def revoke_token(self, token_id: str) -> bool:
+        """Revoke a token by setting ``revoked_at``. Returns True if revoked."""
+        now = datetime.now(UTC)
+        result = await self._session.execute(
+            update(ProjectTokenRow)
+            .where(
+                ProjectTokenRow.id == token_id,
+                ProjectTokenRow.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        )
+        await self._session.flush()
+        return result.rowcount == 1
+
+    async def touch_token(self, token_id: str) -> None:
+        """Update ``last_used_at`` to now."""
+        now = datetime.now(UTC)
+        await self._session.execute(
+            update(ProjectTokenRow)
+            .where(ProjectTokenRow.id == token_id)
+            .values(last_used_at=now)
+        )
+        await self._session.flush()
+
+    async def find_token_by_hash(self, token_hash: str) -> ProjectTokenRow | None:
+        """Look up a non-revoked token by its stored hash."""
+        result = await self._session.execute(
+            select(ProjectTokenRow).where(
+                ProjectTokenRow.token_hash == token_hash,
+                ProjectTokenRow.revoked_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none()

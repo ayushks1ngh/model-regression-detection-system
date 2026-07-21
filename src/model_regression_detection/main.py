@@ -9,8 +9,10 @@ from fastapi import FastAPI
 from model_regression_detection import __version__
 from model_regression_detection.api.baselines import router as baselines_router
 from model_regression_detection.api.middleware import RequestContextMiddleware
+from model_regression_detection.api.ratelimit import RateLimitMiddleware
 from model_regression_detection.api.routes import router as health_router
 from model_regression_detection.api.runs import router as runs_router
+from model_regression_detection.api.token_management import router as token_router
 from model_regression_detection.config import Settings, get_settings
 from model_regression_detection.logging import configure_logging
 from model_regression_detection.persistence.engine import (
@@ -64,9 +66,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         RequestContextMiddleware,
         header_name=resolved_settings.request_id_header,
     )
+    application.add_middleware(RateLimitMiddleware)
     application.include_router(health_router)
     application.include_router(runs_router)
     application.include_router(baselines_router)
+    application.include_router(token_router)
     return application
 
 

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from model_regression_detection.api.auth import optional_project_id
 from model_regression_detection.api.dependencies import get_session
 from model_regression_detection.persistence.repository import RunRepository
 
@@ -62,6 +63,7 @@ async def promote_run(
     channel: str,
     body: PromoteRequest,
     session: Annotated[AsyncSession, Depends(get_session)],
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
     run_id: str | None = None,
 ) -> PromoteResponse:
     """Promote a completed passing run to the given baseline channel.
@@ -74,6 +76,11 @@ async def promote_run(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="run_id query parameter is required",
+        )
+    if auth_project_id is not None and auth_project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token is scoped to a different project",
         )
     repository = RunRepository(session)
     result = await repository.promote_run(project_id, channel, run_id, body.reason)
@@ -103,8 +110,14 @@ async def get_baseline(
     project_id: str,
     channel: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
 ) -> BaselineResponse:
     """Return the run currently promoted to the given baseline channel."""
+    if auth_project_id is not None and auth_project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token is scoped to a different project",
+        )
     repository = RunRepository(session)
     record = await repository.get_baseline(project_id, channel)
     if record is None:
@@ -129,8 +142,14 @@ async def get_baseline(
 async def list_baselines(
     project_id: str,
     session: Annotated[AsyncSession, Depends(get_session)],
+    auth_project_id: Annotated[str | None, Depends(optional_project_id)] = None,
 ) -> list[BaselineResponse]:
     """List all named baselines for a project."""
+    if auth_project_id is not None and auth_project_id != project_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token is scoped to a different project",
+        )
     repository = RunRepository(session)
     records = await repository.list_baselines(project_id)
     return [

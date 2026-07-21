@@ -36,7 +36,8 @@ Status values: `COMPLETE`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`.
 | M18 | COMPLETE | Reusable GitHub Actions workflow with summaries, artifacts, and distinct failure modes |
 | M19 | COMPLETE | Bounded, retryable Slack notification with decision summary |
 | M20 | COMPLETE | Idempotent cancellation, cancellation token, worker detection, partial evidence |
-| M21–M24 | NOT STARTED | No implementation work permitted until M20 is complete |
+| M21 | COMPLETE | Bearer token auth, scoped access, rate limiter, token management API |
+| M22–M24 | NOT STARTED | No implementation work permitted until M21 is complete |
 
 ## M1 — Runnable project skeleton
 
@@ -236,7 +237,7 @@ Add idempotent cancellation, deadlines, late-result handling, and stale-run reco
 
 ## M21 — Authentication and project isolation
 
-**Status:** NOT STARTED
+**Status:** COMPLETE
 
 Add hashed project tokens, scoped access, rotation/revocation, basic rate limiting, and privileged-action audit.
 
