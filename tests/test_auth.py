@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from model_regression_detection.api.tokens import generate_token, parse_token_id, verify_token
@@ -89,7 +88,7 @@ async def test_create_and_list_tokens() -> None:
     await engine.dispose()
 
 
-async def test_revoke_token() -> None:
+async def test_repository_revoke_token() -> None:
     engine, factory = await _engine()
     async with factory() as session:
         repo = RunRepository(session)

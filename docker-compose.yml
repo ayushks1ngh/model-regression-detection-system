@@ -1,0 +1,63 @@
+x-app-defaults: &app-defaults
+  restart: unless-stopped
+  environment:
+    MRDS_ENVIRONMENT: "${MRDS_ENVIRONMENT:-production}"
+    MRDS_LOG_LEVEL: "${MRDS_LOG_LEVEL:-INFO}"
+    MRDS_LOG_FORMAT: "${MRDS_LOG_FORMAT:-json}"
+    MRDS_DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-mrds}:${POSTGRES_PASSWORD:-mrds}@postgres:5432/${POSTGRES_DB:-mrds}"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-mrds}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-mrds}"
+      POSTGRES_DB: "${POSTGRES_DB:-mrds}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mrds} -d ${POSTGRES_DB:-mrds}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    <<: *app-defaults
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    command: ["uvicorn", "model_regression_detection.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    <<: *app-defaults
+    environment:
+      <<: *app-defaults
+      MRDS_WORKER_FAKE_PROVIDER: "${MRDS_WORKER_FAKE_PROVIDER:-}"
+      MRDS_OPENROUTER_API_KEY: "${MRDS_OPENROUTER_API_KEY:-}"
+    healthcheck:
+      test: ["CMD", "python", "/app/scripts/healthcheck-worker.py"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  pgdata:

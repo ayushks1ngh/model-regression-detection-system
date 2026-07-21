@@ -36,7 +36,9 @@ def verify_token(secret: str, token_hash: str) -> bool:
         expected = bytes.fromhex(dk_hex)
     except (ValueError, KeyError):
         return False
-    actual = hashlib.pbkdf2_hmac("sha256", secret.encode(), salt, _HASH_ITERATIONS, dklen=_DK_LENGTH)
+    actual = hashlib.pbkdf2_hmac(
+        "sha256", secret.encode(), salt, _HASH_ITERATIONS, dklen=_DK_LENGTH
+    )
     return actual == expected
 
 
