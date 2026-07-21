@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"  # noqa: S104 - configurable server bind default
     port: Annotated[int, Field(ge=1, le=65535)] = 8000
     request_id_header: Annotated[str, Field(min_length=1, max_length=100)] = "X-Request-ID"
+    max_request_body_size: Annotated[int, Field(ge=1, le=100_000_000)] = 10_000_000
     database_url: Annotated[str | None, Field(min_length=1, max_length=500)] = None
 
     @field_validator("log_level")

@@ -8,6 +8,8 @@ from fastapi import FastAPI
 
 from model_regression_detection import __version__
 from model_regression_detection.api.baselines import router as baselines_router
+from model_regression_detection.api.body_limit import RequestBodySizeLimitMiddleware
+from model_regression_detection.api.metrics import MetricsMiddleware, metrics_route
 from model_regression_detection.api.middleware import RequestContextMiddleware
 from model_regression_detection.api.ratelimit import RateLimitMiddleware
 from model_regression_detection.api.routes import router as health_router
@@ -67,10 +69,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         header_name=resolved_settings.request_id_header,
     )
     application.add_middleware(RateLimitMiddleware)
+    application.add_middleware(MetricsMiddleware)
+    application.add_middleware(
+        RequestBodySizeLimitMiddleware,
+        max_bytes=resolved_settings.max_request_body_size,
+    )
     application.include_router(health_router)
     application.include_router(runs_router)
     application.include_router(baselines_router)
     application.include_router(token_router)
+    application.router.routes.append(metrics_route)
     return application
 
 

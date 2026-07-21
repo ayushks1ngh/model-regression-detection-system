@@ -33,10 +33,13 @@ dev = [
   "pytest==8.4.1",
   "pytest-cov==6.2.1",
   "ruff==0.12.4",
+  "bandit==1.8.3",
+  "pip-audit==2.8.0",
   "types-jsonschema==4.26.0.20260518",
   "types-PyYAML==6.0.12.20250516",
   "types-regex==2026.7.10.20260711",
 ]
+prometheus = ["prometheus-client==0.21.1"]
 
 [project.scripts]
 mrds = "model_regression_detection.cli:app"
