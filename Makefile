@@ -1,25 +1,33 @@
-.PHONY: install lint typecheck test coverage security-scan clean
+.PHONY: install lint format typecheck test coverage security-scan clean all check
+
+all: format lint typecheck test
+
+check: lint typecheck test
 
 install:
-	uv sync --dev --all-extras
+	uv sync --extra dev --extra prometheus
+
+format:
+	uv run ruff format .
 
 lint:
-	ruff check src/ tests/
+	uv run ruff format --check .
+	uv run ruff check .
 
 typecheck:
-	mypy src/
+	uv run mypy
 
 test:
-	pytest tests/ -x -q
+	uv run pytest -x -q
 
 coverage:
-	pytest tests/ -x --cov=model_regression_detection --cov-report=term-missing
+	uv run pytest --cov=model_regression_detection --cov-report=term-missing
 
 security-scan:
-	bandit -r src/ -x tests/
-	pip-audit
+	uv run bandit -r src/ -x tests/ -c pyproject.toml
+	uv run pip-audit
 
 clean:
-	rm -rf .coverage htmlcov/ .mypy_cache/ .pytest_cache/ __pycache__/
+	rm -rf .coverage htmlcov/ .mypy_cache/ .pytest_cache/ __pycache__/ test.db
 	find . -name '*.pyc' -delete
 	find . -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
