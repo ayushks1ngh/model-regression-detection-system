@@ -5,17 +5,18 @@ set -e
 if [ -n "$MRDS_DATABASE_URL" ]; then
   echo "entrypoint: waiting for database..."
   until python -c "
-import urllib.parse, time
-url = urllib.parse.urlparse('${MRDS_DATABASE_URL}')
-host, port = url.hostname or 'localhost', url.port or 5432
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+import os, urllib.parse, socket, sys
+url = urllib.parse.urlparse(os.environ['MRDS_DATABASE_URL'])
+host = url.hostname or 'localhost'
+port = url.port or 5432
 try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(2)
     s.connect((host, port))
     s.close()
-    exit(0)
-except:
-    exit(1)
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
 " 2>/dev/null; do
     sleep 1
   done
