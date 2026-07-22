@@ -11,8 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-from model_regression_detection.persistence.models import PortableJson
-
 revision: str = "0006_project_tokens"
 down_revision: str | None = "0005_cancellation"
 branch_labels: str | Sequence[str] | None = None
