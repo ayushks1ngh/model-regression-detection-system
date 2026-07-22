@@ -15,16 +15,12 @@ def _case_outcome(
     specification: EvaluationSpecification,
 ) -> CaseOutcome | None:
     """Derive case outcome for a single case in a run (or None if not found)."""
-    evaluator_required = {
-        e.name: e.required for e in specification.evaluators
-    }
+    evaluator_required = {e.name: e.required for e in specification.evaluators}
     for result in run.cases:
         if result.case_key != case_key:
             continue
         required_statuses = [
-            e.status
-            for e in result.evaluations
-            if evaluator_required[e.evaluator_name]
+            e.status for e in result.evaluations if evaluator_required[e.evaluator_name]
         ]
         if result.provider_result.status == "error" or any(
             s in {EvaluationStatus.ERRORED, EvaluationStatus.NOT_APPLICABLE}
@@ -44,10 +40,7 @@ def _pass_rate(
     """Compute pass rate for a run, or None if no cases."""
     if not run.cases:
         return None
-    outcomes = [
-        _case_outcome(run, result.case_key, specification)
-        for result in run.cases
-    ]
+    outcomes = [_case_outcome(run, result.case_key, specification) for result in run.cases]
     outcomes = [o for o in outcomes if o is not None]
     if not outcomes:
         return None
@@ -108,25 +101,17 @@ def compare_candidate_to_baseline(
 
     latency_ms_baseline = _aggregate_latency(baseline_run)
     latency_ms_candidate = _aggregate_latency(candidate_run)
-    latency_increase_pct = max(
-        _pct_change(latency_ms_baseline, latency_ms_candidate), 0.0
-    )
+    latency_increase_pct = max(_pct_change(latency_ms_baseline, latency_ms_candidate), 0.0)
 
     cost_baseline = _aggregate_cost(baseline_run)
     cost_candidate = _aggregate_cost(candidate_run)
     cost_increase_pct: float | None = None
     if cost_baseline is not None and cost_candidate is not None:
-        cost_increase_pct = max(
-            _pct_change(cost_baseline, cost_candidate), 0.0
-        )
+        cost_increase_pct = max(_pct_change(cost_baseline, cost_candidate), 0.0)
 
     return BaselineComparison(
-        configuration_match=(
-            candidate_run.configuration_hash == baseline_run.configuration_hash
-        ),
-        dataset_match=(
-            candidate_run.dataset_hash == baseline_run.dataset_hash
-        ),
+        configuration_match=(candidate_run.configuration_hash == baseline_run.configuration_hash),
+        dataset_match=(candidate_run.dataset_hash == baseline_run.dataset_hash),
         total_cases_candidate=len(candidate_run.cases),
         total_cases_baseline=len(baseline_run.cases),
         matching_case_keys=matching,

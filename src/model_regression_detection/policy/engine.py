@@ -373,9 +373,7 @@ def compare_and_decide(
         compare_candidate_to_baseline,
     )
 
-    baseline = compare_candidate_to_baseline(
-        candidate_run, baseline_run, specification
-    )
+    baseline = compare_candidate_to_baseline(candidate_run, baseline_run, specification)
     cases = _case_summaries(specification, candidate_run)
     metrics = _metrics(candidate_run, cases)
     rules = _rules(specification, metrics, cases, baseline=baseline)

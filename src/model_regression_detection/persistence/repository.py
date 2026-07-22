@@ -411,9 +411,7 @@ class RunRepository:
         existing_row.previous_run_id = previous_run_id
         return False, existing_row
 
-    async def get_baseline(
-        self, project_id: str, channel: str
-    ) -> BaselineChannelRow | None:
+    async def get_baseline(self, project_id: str, channel: str) -> BaselineChannelRow | None:
         """Return the baseline record for a channel, or None."""
         result = await self._session.execute(
             select(BaselineChannelRow).where(
@@ -493,9 +491,7 @@ class RunRepository:
         """Update ``last_used_at`` to now."""
         now = datetime.now(UTC)
         await self._session.execute(
-            update(ProjectTokenRow)
-            .where(ProjectTokenRow.id == token_id)
-            .values(last_used_at=now)
+            update(ProjectTokenRow).where(ProjectTokenRow.id == token_id).values(last_used_at=now)
         )
         await self._session.flush()
 

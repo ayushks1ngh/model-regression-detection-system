@@ -97,8 +97,7 @@ def _build_message(report: JsonReport, report_url: str | None = None) -> dict[st
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"MRDS v{report.generator_version} | "
-                    f"Schema {report.schema_version}",
+                    "text": f"MRDS v{report.generator_version} | Schema {report.schema_version}",
                 }
             ],
         }

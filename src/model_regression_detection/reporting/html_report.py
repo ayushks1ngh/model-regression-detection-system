@@ -151,7 +151,7 @@ def _rules_section(rules: tuple[RuleDecision, ...]) -> str:
 <table>
 <thead><tr><th>Rule</th><th>Status</th><th>Observed</th><th>Threshold</th><th>Explanation</th></tr></thead>
 <tbody>
-{''.join(rows)}
+{"".join(rows)}
 </tbody>
 </table>
 </div>"""
@@ -199,9 +199,7 @@ def _baseline_section(baseline: BaselineComparison | None) -> str:
         "<tr><td>Pass rate drop</td><td>"
         f"{_format_delta(baseline.pass_rate_drop, 'ratio')}</td></tr>"
     )
-    rows.append(
-        f"<tr><td>Latency baseline</td><td>{baseline.latency_ms_baseline:.1f} ms</td></tr>"
-    )
+    rows.append(f"<tr><td>Latency baseline</td><td>{baseline.latency_ms_baseline:.1f} ms</td></tr>")
     rows.append(
         f"<tr><td>Latency candidate</td><td>{baseline.latency_ms_candidate:.1f} ms</td></tr>"
     )
@@ -218,7 +216,7 @@ def _baseline_section(baseline: BaselineComparison | None) -> str:
 <div class='card'>
 <h2>Baseline comparison</h2>
 <table>
-{''.join(rows)}
+{"".join(rows)}
 </table>
 </div>"""
 
@@ -253,7 +251,7 @@ def _case_section(case: ReportCase) -> str:
 <tr><td>Ordinal</td><td>{case.ordinal}</td></tr>
 <tr><td>Critical</td><td>{case.critical}</td></tr>
 <tr><td>Provider status</td><td>{case.provider_status}</td></tr>
-<tr><td>Resolved model</td><td>{_h(case.resolved_model) if case.resolved_model else '—'}</td></tr>
+<tr><td>Resolved model</td><td>{_h(case.resolved_model) if case.resolved_model else "—"}</td></tr>
 <tr><td>Latency</td><td>{case.latency_ms:.1f} ms</td></tr>
 <tr><td>Output excerpt</td><td><pre>{output}</pre></td></tr>
 {error_info}

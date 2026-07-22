@@ -116,9 +116,7 @@ class Worker:
         if run_id is None:
             return False
 
-        logger.info(
-            "worker_claimed_run", extra={"run_id": run_id, "worker_id": self.worker_id}
-        )
+        logger.info("worker_claimed_run", extra={"run_id": run_id, "worker_id": self.worker_id})
 
         # Re-check cancellation after claim — a cancel could have raced in
         if await self._is_cancelled(run_id):
@@ -138,9 +136,7 @@ class Worker:
         if cancellation_token.cancelled:
             async with self._session_factory() as session:
                 repository = RunRepository(session)
-                acked = await repository.acknowledge_cancellation(
-                    run_id, self.worker_id, report
-                )
+                acked = await repository.acknowledge_cancellation(run_id, self.worker_id, report)
                 await session.commit()
             logger.info(
                 "worker_cancelled_run",
@@ -154,9 +150,7 @@ class Worker:
 
         async with self._session_factory() as session:
             repository = RunRepository(session)
-            completed = await repository.complete_run(
-                run_id, report, worker_id=self.worker_id
-            )
+            completed = await repository.complete_run(run_id, report, worker_id=self.worker_id)
             await session.commit()
         logger.info(
             "worker_finished_run",
@@ -216,16 +210,12 @@ class Worker:
         async def _heartbeat_loop() -> None:
             while not stop_heartbeat.is_set():
                 with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(
-                        stop_heartbeat.wait(), timeout=heartbeat_interval
-                    )
+                    await asyncio.wait_for(stop_heartbeat.wait(), timeout=heartbeat_interval)
                 if stop_heartbeat.is_set():
                     return
                 async with self._session_factory() as hb_session:
                     repo = RunRepository(hb_session)
-                    ok = await repo.heartbeat(
-                        run_id, self.worker_id, self._lease_seconds
-                    )
+                    ok = await repo.heartbeat(run_id, self.worker_id, self._lease_seconds)
                     await hb_session.commit()
                     if not ok:
                         logger.warning(
@@ -246,9 +236,7 @@ class Worker:
                 base_delay_seconds=self._base_retry_delay,
                 max_delay_seconds=self._max_retry_delay,
             )
-            return await execute_local_evaluation(
-                specification, retrying, cancellation_token
-            )
+            return await execute_local_evaluation(specification, retrying, cancellation_token)
         finally:
             stop_heartbeat.set()
             heartbeat_task.cancel()
