@@ -190,9 +190,7 @@ def submit(
 
     endpoint = f"{url.rstrip('/')}/api/v1/runs"
     try:
-        response = httpx.post(
-            endpoint, json=body, headers=headers, timeout=timeout_seconds
-        )
+        response = httpx.post(endpoint, json=body, headers=headers, timeout=timeout_seconds)
         response.raise_for_status()
         payload = response.json()
     except httpx.HTTPStatusError as exc:
@@ -256,9 +254,7 @@ def status(
     state = payload.get("state", "unknown")
     gate = payload.get("gate_outcome") or "none"
     total = payload.get("total_cases") or "?"
-    typer.echo(
-        f"run_id={run_id} state={state} gate={gate} total_cases={total}"
-    )
+    typer.echo(f"run_id={run_id} state={state} gate={gate} total_cases={total}")
     raise typer.Exit(code=_gate_exit_code(payload.get("gate_outcome")))
 
 
@@ -313,15 +309,13 @@ def wait(
             raise typer.Exit(code=EXIT_ERROR) from None
 
         state = payload.get("state")
-        if state in ("completed", "failed"):
+        if state in ("completed", "failed", "cancelled"):
             gate = payload.get("gate_outcome") or "error"
             if json_output:
                 typer.echo(json.dumps(payload, sort_keys=True))
             else:
                 total = payload.get("total_cases") or "?"
-                typer.echo(
-                    f"run_id={run_id} state={state} gate={gate} total_cases={total}"
-                )
+                typer.echo(f"run_id={run_id} state={state} gate={gate} total_cases={total}")
             raise typer.Exit(code=_gate_exit_code(gate))
 
         time.sleep(poll_interval)
@@ -366,9 +360,7 @@ def download(
         typer.echo(f"Download request failed: {exc}", err=True)
         raise typer.Exit(code=EXIT_ERROR) from None
 
-    output_path.write_text(
-        f"{json.dumps(payload, indent=2, sort_keys=True)}\n", encoding="utf-8"
-    )
+    output_path.write_text(f"{json.dumps(payload, indent=2, sort_keys=True)}\n", encoding="utf-8")
     gate = payload.get("gate_outcome")
     typer.echo(f"Report written to {output_path}")
     raise typer.Exit(code=_gate_exit_code(gate))
