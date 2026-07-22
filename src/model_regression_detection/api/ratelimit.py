@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 WINDOW_SECONDS: Final = 60
 MAX_REQUESTS: Final = 100
+_EVICTION_INTERVAL: Final = 300  # Evict stale buckets every 5 minutes
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -20,6 +21,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     Tokens are identified by the ``token_id`` extracted from the
     ``Authorization`` header. Unauthenticated requests are not rate-limited.
+    Stale token buckets are periodically evicted to prevent memory growth.
     """
 
     def __init__(
@@ -33,15 +35,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._window = window_seconds
         self._max = max_requests
         self._buckets: dict[str, list[float]] = {}
+        self._last_eviction: float = time.monotonic()
 
     async def dispatch(
         self,
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
+        self._maybe_evict()
         auth = request.headers.get("Authorization", "")
         if auth.startswith("Bearer "):
             from model_regression_detection.api.tokens import parse_token_id
+
             token_id = parse_token_id(auth.removeprefix("Bearer "))
             if token_id is not None and not self._allow(token_id):
                 logger.warning(
@@ -65,3 +70,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return False
         self._buckets[token_id].append(now)
         return True
+
+    def _maybe_evict(self) -> None:
+        """Remove token buckets that have no recent activity to prevent unbounded growth."""
+        now = time.monotonic()
+        if now - self._last_eviction < _EVICTION_INTERVAL:
+            return
+        self._last_eviction = now
+        cutoff = now - self._window
+        stale_keys = [k for k, v in self._buckets.items() if not v or v[-1] <= cutoff]
+        for key in stale_keys:
+            del self._buckets[key]
