@@ -186,15 +186,11 @@ class _CountingProvider:
         return self._results.pop(0)
 
 
-_SAMPLE_MESSAGE = (
-    InferenceMessage(role="user", content="hello"),
-)
+_SAMPLE_MESSAGE = (InferenceMessage(role="user", content="hello"),)
 
 
 async def test_retry_provider_retries_on_retryable_error() -> None:
-    success = InferenceResult(
-        status="success", output="ok", latency_ms=0.0
-    )
+    success = InferenceResult(status="success", output="ok", latency_ms=0.0)
     retryable = InferenceResult(
         status="error",
         latency_ms=0.0,
@@ -317,6 +313,7 @@ async def test_heartbeat_extends_lease_during_execution() -> None:
     class _SlowProvider:
         async def generate(self, request: InferenceRequest) -> InferenceResult:
             import asyncio as _asyncio
+
             await _asyncio.sleep(1.5)
             return InferenceResult(status="success", output="30 days", latency_ms=0.0)
 

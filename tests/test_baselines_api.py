@@ -39,7 +39,6 @@ _run_id: str = ""
 
 
 async def _init_db(engine: object) -> None:
-
     async with engine.begin() as conn:  # type: ignore[union-attr]
         await conn.run_sync(Base.metadata.create_all)
 

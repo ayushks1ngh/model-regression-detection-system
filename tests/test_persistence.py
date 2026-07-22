@@ -354,9 +354,7 @@ async def test_reconcile_fails_stranded_running_runs() -> None:
     async with factory() as session:
         repo = RunRepository(session)
         await repo.ensure_project("proj-1", "proj-1", "One")
-        run_id = await repo.create_run(
-            "proj-1", specification, "a" * 64, "b" * 64, None, None
-        )
+        run_id = await repo.create_run("proj-1", specification, "a" * 64, "b" * 64, None, None)
         await session.commit()
 
     async with factory() as session:
@@ -394,9 +392,7 @@ async def test_reconcile_skips_active_leases() -> None:
     async with factory() as session:
         repo = RunRepository(session)
         await repo.ensure_project("proj-1", "proj-1", "One")
-        run_id = await repo.create_run(
-            "proj-1", specification, "a" * 64, "b" * 64, None, None
-        )
+        run_id = await repo.create_run("proj-1", specification, "a" * 64, "b" * 64, None, None)
         await session.commit()
 
     async with factory() as session:
@@ -424,9 +420,7 @@ async def test_reconcile_is_idempotent() -> None:
     async with factory() as session:
         repo = RunRepository(session)
         await repo.ensure_project("proj-1", "proj-1", "One")
-        run_id = await repo.create_run(
-            "proj-1", specification, "a" * 64, "b" * 64, None, None
-        )
+        run_id = await repo.create_run("proj-1", specification, "a" * 64, "b" * 64, None, None)
         await session.commit()
 
     async with factory() as session:
@@ -463,9 +457,7 @@ async def test_reconcile_stale_created_runs() -> None:
     async with factory() as session:
         repo = RunRepository(session)
         await repo.ensure_project("proj-1", "proj-1", "One")
-        run_id = await repo.create_run(
-            "proj-1", specification, "a" * 64, "b" * 64, None, None
-        )
+        run_id = await repo.create_run("proj-1", specification, "a" * 64, "b" * 64, None, None)
         await session.commit()
 
     async with factory() as session:

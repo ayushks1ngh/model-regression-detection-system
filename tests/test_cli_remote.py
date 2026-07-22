@@ -32,7 +32,9 @@ def httpx_exc(status_code: int, response: object) -> Exception:
     import httpx
 
     return httpx.HTTPStatusError(
-        "error", request=type("Req", (), {})(), response=response  # type: ignore[arg-type]
+        "error",
+        request=type("Req", (), {})(),
+        response=response,  # type: ignore[arg-type]
     )
 
 
@@ -108,9 +110,7 @@ def test_status_fail() -> None:
 
 def test_status_gate_error() -> None:
     with patch("model_regression_detection.cli.httpx.get") as mock_get:
-        mock_get.return_value = _mock_response(
-            200, {"state": "failed", "gate_outcome": "error"}
-        )
+        mock_get.return_value = _mock_response(200, {"state": "failed", "gate_outcome": "error"})
         result = runner.invoke(app, ["status", "run-abc"])
 
     assert result.exit_code == EXIT_ERROR
@@ -126,9 +126,7 @@ def test_status_404() -> None:
 
 def test_status_json_output() -> None:
     with patch("model_regression_detection.cli.httpx.get") as mock_get:
-        mock_get.return_value = _mock_response(
-            200, {"state": "completed", "gate_outcome": "pass"}
-        )
+        mock_get.return_value = _mock_response(200, {"state": "completed", "gate_outcome": "pass"})
         result = runner.invoke(app, ["status", "run-abc", "--json"])
 
     assert result.exit_code == EXIT_PASS
@@ -149,9 +147,7 @@ def test_wait_completes_successfully() -> None:
 
 def test_wait_fail_outcome() -> None:
     with patch("model_regression_detection.cli.httpx.get") as mock_get:
-        mock_get.return_value = _mock_response(
-            200, {"state": "completed", "gate_outcome": "fail"}
-        )
+        mock_get.return_value = _mock_response(200, {"state": "completed", "gate_outcome": "fail"})
         result = runner.invoke(app, ["wait", "run-abc", "--timeout-seconds", "10"])
 
     assert result.exit_code == EXIT_REGRESSION
@@ -167,9 +163,7 @@ def test_wait_404() -> None:
 
 def test_wait_timeout() -> None:
     with patch("model_regression_detection.cli.httpx.get") as mock_get:
-        mock_get.return_value = _mock_response(
-            200, {"state": "created", "gate_outcome": None}
-        )
+        mock_get.return_value = _mock_response(200, {"state": "created", "gate_outcome": None})
         result = runner.invoke(
             app, ["wait", "run-abc", "--timeout-seconds", "1", "--poll-interval", "0.1"]
         )
@@ -179,9 +173,7 @@ def test_wait_timeout() -> None:
 
 def test_wait_json_output() -> None:
     with patch("model_regression_detection.cli.httpx.get") as mock_get:
-        mock_get.return_value = _mock_response(
-            200, {"state": "completed", "gate_outcome": "pass"}
-        )
+        mock_get.return_value = _mock_response(200, {"state": "completed", "gate_outcome": "pass"})
         result = runner.invoke(app, ["wait", "run-abc", "--timeout-seconds", "10", "--json"])
 
     assert result.exit_code == EXIT_PASS
@@ -265,9 +257,7 @@ def test_wait_polls_until_completion() -> None:
         call_count += 1
         if call_count < 3:
             return _mock_response(200, {"state": "created", "gate_outcome": None})
-        return _mock_response(
-            200, {"state": "completed", "gate_outcome": "pass", "total_cases": 5}
-        )
+        return _mock_response(200, {"state": "completed", "gate_outcome": "pass", "total_cases": 5})
 
     with patch("model_regression_detection.cli.httpx.get") as mock_get:
         mock_get.side_effect = side_effect

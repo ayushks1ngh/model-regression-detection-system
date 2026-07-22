@@ -85,9 +85,7 @@ async def test_html_has_no_external_scripts() -> None:
 @pytest.mark.anyio
 async def test_html_escapes_user_content_in_output() -> None:
     document = valid_document()
-    html = await html_report(
-        document, {"refund": FakeResponse(output="<script>alert(1)</script>")}
-    )
+    html = await html_report(document, {"refund": FakeResponse(output="<script>alert(1)</script>")})
 
     assert "&lt;script&gt;alert" in html
     assert "<script>alert" not in html
@@ -126,9 +124,7 @@ async def test_html_shows_rules_section() -> None:
 async def test_html_shows_fail_gate_outcome() -> None:
     document = valid_document()
     document["policy"]["minimum_pass_rate"] = 1.0
-    html = await html_report(
-        document, {"refund": FakeResponse(output="wrong answer")}
-    )
+    html = await html_report(document, {"refund": FakeResponse(output="wrong answer")})
 
     assert "badge-fail" in html
 
@@ -156,9 +152,7 @@ async def test_html_shows_error_gate_outcome() -> None:
 @pytest.mark.anyio
 async def test_html_shows_evaluator_results() -> None:
     document = valid_document()
-    html = await html_report(
-        document, {"refund": FakeResponse(output="wrong answer")}
-    )
+    html = await html_report(document, {"refund": FakeResponse(output="wrong answer")})
 
     assert "answer-match" in html
     assert "failed" in html

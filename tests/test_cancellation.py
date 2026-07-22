@@ -146,9 +146,7 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
         database_url=database_url,
     )
     with TestClient(create_app(settings)) as test_client:
-        test_client.app.state._test_db_path = database_url.replace(
-            "sqlite+aiosqlite:///", ""
-        )
+        test_client.app.state._test_db_path = database_url.replace("sqlite+aiosqlite:///", "")
         yield test_client
 
 
@@ -196,6 +194,7 @@ def test_cancel_completed_run_returns_409(client: TestClient) -> None:
 
     # Simulate a completed run by directly updating the DB
     import sqlite3
+
     db_path = client.app.state._test_db_path
     conn = sqlite3.connect(db_path)
     conn.execute(

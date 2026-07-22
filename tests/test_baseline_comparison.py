@@ -97,9 +97,7 @@ async def test_pass_rate_drop_is_captured() -> None:
 async def test_configuration_mismatch_detected() -> None:
     document1 = two_case_document()
     document2 = deepcopy(document1)
-    document2["prompt"]["messages"] = [
-        {"role": "user", "content": "Different: {request}"}
-    ]
+    document2["prompt"]["messages"] = [{"role": "user", "content": "Different: {request}"}]
 
     responses = {
         "refund": FakeResponse(output="30 days"),
@@ -243,9 +241,7 @@ async def test_pass_rate_drop_violation_causes_fail() -> None:
     decision = compare_and_decide(specification, candidate, baseline)
 
     assert decision.outcome is GateOutcome.FAIL
-    drop_rule = next(
-        r for r in decision.rules if r.rule_id == "maximum_pass_rate_drop"
-    )
+    drop_rule = next(r for r in decision.rules if r.rule_id == "maximum_pass_rate_drop")
     assert drop_rule.status is RuleStatus.VIOLATED
     assert drop_rule.observed == 0.5
 
@@ -293,9 +289,7 @@ async def test_cost_increase_violation_causes_fail() -> None:
     decision = compare_and_decide(specification, candidate, baseline)
 
     assert decision.outcome is GateOutcome.FAIL
-    cost_rule = next(
-        r for r in decision.rules if r.rule_id == "maximum_cost_increase_percent"
-    )
+    cost_rule = next(r for r in decision.rules if r.rule_id == "maximum_cost_increase_percent")
     assert cost_rule.status is RuleStatus.VIOLATED
 
 
@@ -303,9 +297,7 @@ async def test_cost_increase_violation_causes_fail() -> None:
 async def test_incompatible_baseline_produces_error_gate() -> None:
     document1 = two_case_document()
     document2 = deepcopy(document1)
-    document2["prompt"]["messages"] = [
-        {"role": "user", "content": "Different: {request}"}
-    ]
+    document2["prompt"]["messages"] = [{"role": "user", "content": "Different: {request}"}]
 
     responses = {
         "refund": FakeResponse(output="30 days"),
@@ -327,9 +319,7 @@ async def test_incompatible_baseline_produces_error_gate() -> None:
             "maximum_cost_increase_percent",
         }
     }
-    assert all(
-        s is RuleStatus.INSUFFICIENT_EVIDENCE for s in baseline_rules.values()
-    )
+    assert all(s is RuleStatus.INSUFFICIENT_EVIDENCE for s in baseline_rules.values())
     assert decision.outcome is GateOutcome.ERROR
 
 
@@ -352,8 +342,6 @@ async def test_aggregate_and_decide_still_works_without_baseline() -> None:
         "maximum_cost_increase_percent",
     }
     baseline_rules = {
-        rule.rule_id: rule.status
-        for rule in decision.rules
-        if rule.rule_id in baseline_rule_ids
+        rule.rule_id: rule.status for rule in decision.rules if rule.rule_id in baseline_rule_ids
     }
     assert set(baseline_rules.values()) == {RuleStatus.NOT_APPLICABLE}

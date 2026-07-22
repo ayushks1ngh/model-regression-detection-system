@@ -167,10 +167,7 @@ async def test_worker_handles_provider_timeout() -> None:
     report = await worker._execute_with_heartbeat(run_id, spec, cancellation_token)
 
     assert report is not None
-    assert any(
-        case.provider_result.status == "error"
-        for case in report.run.cases
-    )
+    assert any(case.provider_result.status == "error" for case in report.run.cases)
 
 
 async def test_intermittent_timeout_eventually_succeeds() -> None:
@@ -266,9 +263,7 @@ async def test_run_with_expired_lease_claimed_by_another_worker() -> None:
     )
 
     async with factory() as session:
-        ok = await RunRepository(session).complete_run(
-            run_id, report, worker_id="worker-a"
-        )
+        ok = await RunRepository(session).complete_run(run_id, report, worker_id="worker-a")
         await session.commit()
 
     assert ok is False
