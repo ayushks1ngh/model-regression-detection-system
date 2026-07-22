@@ -97,7 +97,9 @@ async def get_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Run not found",
         )
-    run_state: Literal["created", "completed", "failed", "cancelling", "cancelled"] = run.state  # type: ignore[assignment]
+    run_state: Literal["created", "running", "completed", "failed", "cancelling", "cancelled"] = (
+        run.state  # type: ignore[assignment]
+    )
     run_gate_outcome: Literal["pass", "fail", "error"] | None = run.gate_outcome  # type: ignore[assignment]
     return RunStatusResponse(
         run_id=run.id,
@@ -130,7 +132,9 @@ async def get_run_report(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Run not found",
         )
-    run_state: Literal["created", "completed", "failed", "cancelling", "cancelled"] = run.state  # type: ignore[assignment]
+    run_state: Literal["created", "running", "completed", "failed", "cancelling", "cancelled"] = (
+        run.state  # type: ignore[assignment]
+    )
     run_gate_outcome: Literal["pass", "fail", "error"] | None = run.gate_outcome  # type: ignore[assignment]
     cases = tuple(
         CaseEvidenceResponse(

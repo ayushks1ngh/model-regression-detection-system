@@ -62,7 +62,7 @@ class RunStatusResponse(BaseModel):
     run_id: str
     project_id: str
     suite: str
-    state: Literal["created", "completed", "failed", "cancelling", "cancelled"]
+    state: Literal["created", "running", "completed", "failed", "cancelling", "cancelled"]
     gate_outcome: Literal["pass", "fail", "error"] | None
     total_cases: int | None
     created_at: datetime
@@ -100,7 +100,7 @@ class RunReportResponse(BaseModel):
     run_id: str
     project_id: str
     suite: str
-    state: Literal["created", "completed", "failed", "cancelling", "cancelled"]
+    state: Literal["created", "running", "completed", "failed", "cancelling", "cancelled"]
     gate_outcome: Literal["pass", "fail", "error"] | None
     total_cases: int | None
     metrics: dict[str, Any] | None
