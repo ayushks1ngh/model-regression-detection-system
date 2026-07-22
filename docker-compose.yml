@@ -49,7 +49,10 @@ services:
       dockerfile: Dockerfile.worker
     <<: *app-defaults
     environment:
-      <<: *app-defaults
+      MRDS_ENVIRONMENT: "${MRDS_ENVIRONMENT:-production}"
+      MRDS_LOG_LEVEL: "${MRDS_LOG_LEVEL:-INFO}"
+      MRDS_LOG_FORMAT: "${MRDS_LOG_FORMAT:-json}"
+      MRDS_DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-mrds}:${POSTGRES_PASSWORD:-mrds}@postgres:5432/${POSTGRES_DB:-mrds}"
       MRDS_WORKER_FAKE_PROVIDER: "${MRDS_WORKER_FAKE_PROVIDER:-}"
       MRDS_OPENROUTER_API_KEY: "${MRDS_OPENROUTER_API_KEY:-}"
     healthcheck:
